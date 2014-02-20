@@ -33,8 +33,11 @@
 
 enum {
 	/** Maximal iproto package body length (2GiB) */
-	IPROTO_BODY_LEN_MAX = 2147483648UL
+	IPROTO_BODY_LEN_MAX = 2147483648UL,
+	IPROTO_GREETING_SIZE = 128,
+	IPROTO_SEED_SIZE = 32
 };
+
 
 enum iproto_key {
 	IPROTO_CODE = 0x00,

@@ -1,5 +1,3 @@
-#ifndef TARANTOOL_IPROTO_H_INCLUDED
-#define TARANTOOL_IPROTO_H_INCLUDED
 /*
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -28,9 +26,26 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-void
-iproto_init(const char *bind_ipaddr, int primary_port);
+#include "random.h"
+#include <sys/types.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <stdlib.h>
 
-const char *
-iproto_greeting();
+#ifdef __linux__
+#define DEV_RANDOM "/dev/urandom"
+#else
+#define DEV_RANDOM "/dev/random"
 #endif
+
+void
+random_init(void)
+{
+	int fd = open(DEV_RANDOM, O_RDONLY);
+	long int seed;
+	read(fd, &seed, sizeof(seed));
+	close(fd);
+	srandom(seed);
+	srand(seed);
+}

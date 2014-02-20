@@ -44,6 +44,7 @@
 #include "memory.h"
 #include "msgpuck/msgpuck.h"
 #include "replication.h"
+#include "third_party/base64.h"
 
 class IprotoConnectionShutdown: public Exception
 {
@@ -808,6 +809,24 @@ iproto_process_disconnect(struct iproto_request *request)
 }
 
 /** }}} */
+
+const char *
+iproto_greeting()
+{
+	static __thread char greeting[IPROTO_GREETING_SIZE + 1];
+	const int SEED_ARRAY_SIZE = IPROTO_SEED_SIZE/sizeof(int);
+	int seed[SEED_ARRAY_SIZE];
+	char base64buf[sizeof(seed) * 4 / 3 + 5];
+
+	for (int i = 0; i < SEED_ARRAY_SIZE; i++)
+		seed[i] = rand();
+	base64_encode((char *) seed, sizeof(seed),
+		      base64buf, sizeof(base64buf));
+	snprintf(greeting, sizeof(greeting),
+		 "Tarantool %-20s %-32s\n%-63s\n",
+		 tarantool_version(), custom_proc_title, base64buf);
+	return greeting;
+}
 
 /**
  * Create a connection context and start input.

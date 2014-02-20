@@ -153,9 +153,12 @@ base64_encode_blockend(char *out_base64, int out_len,
 	}
 	if (out_pos >= out_end)
 		return out_pos - out_base64;
+#if 0
+	/* Sometimes the output is useful without a newline. */
 	*out_pos++ = '\n';
 	if (out_pos >= out_end)
 		return out_pos - out_base64;
+#endif
 	*out_pos = '\0';
 	return out_pos - out_base64;
 }

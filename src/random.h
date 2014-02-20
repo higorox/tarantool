@@ -1,5 +1,5 @@
-#ifndef TARANTOOL_IPROTO_H_INCLUDED
-#define TARANTOOL_IPROTO_H_INCLUDED
+#ifndef INCLUDES_TARANTOOL_RANDOM_H
+#define INCLUDES_TARANTOOL_RANDOM_H
 /*
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -28,9 +28,13 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-void
-iproto_init(const char *bind_ipaddr, int primary_port);
-
-const char *
-iproto_greeting();
+#ifdef __cplusplus
+extern "C" {
 #endif
+void
+random_init(void);
+
+#ifdef __cplusplus
+}
+#endif /* extern "C" */
+#endif /* INCLUDES_TARANTOOL_RANDOM_H */
