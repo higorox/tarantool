@@ -80,6 +80,8 @@ session_create(int fd, uint64_t cookie)
 		mempool_free(&session_pool, session);
 		throw;
 	}
+	for (int i = 0; i < SESSION_SEED_SIZE/sizeof(*session->salt); i++)
+		session->salt[i] = rand();
 	return session;
 }
 

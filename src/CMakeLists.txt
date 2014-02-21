@@ -71,6 +71,7 @@ set (common_sources
      fio.c
      crc32.c
      random.c
+     scramble.c
      tbuf.c
      opts.c
      cpu_feature.c

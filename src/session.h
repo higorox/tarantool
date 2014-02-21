@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include "trigger.h"
 
+enum {	SESSION_SEED_SIZE = 32 };
 /**
  * Abstraction of a single user session:
  * for now, only provides accounting of established
@@ -43,6 +44,7 @@ struct session {
 	uint32_t id;
 	int fd;
 	uint64_t cookie;
+	int salt[SESSION_SEED_SIZE/sizeof(int)];
 };
 
 /**

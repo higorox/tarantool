@@ -1,5 +1,3 @@
-#ifndef TARANTOOL_IPROTO_H_INCLUDED
-#define TARANTOOL_IPROTO_H_INCLUDED
 /*
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -28,6 +26,57 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#include "scramble.h"
+#include "third_party/sha1.h"
+#include <string.h>
+
+static void
+xor(unsigned char *to, unsigned const char *left,
+    unsigned const char *right, uint32_t len)
+{
+	const uint8_t *end = to + len;
+	while (to < end)
+		*to++= *left++ ^ *right++;
+}
+
 void
-iproto_init(const char *bind_ipaddr, int primary_port);
-#endif
+scramble_prepare(unsigned char *out, const unsigned char *password,
+		 const unsigned char *salt)
+{
+
+	unsigned char hash1[SCRAMBLE_SIZE];
+	unsigned char hash2[SCRAMBLE_SIZE];
+	SHA1_CTX ctx;
+
+	SHA1Init(&ctx);
+	SHA1Update(&ctx, password, strlen((const char *) password));
+	SHA1Final(hash1, &ctx);
+
+	SHA1Init(&ctx);
+	SHA1Update(&ctx, hash1, SCRAMBLE_SIZE);
+	SHA1Final(hash2, &ctx);
+
+	SHA1Init(&ctx);
+	SHA1Update(&ctx, salt, SCRAMBLE_SIZE);
+	SHA1Update(&ctx, hash2, SCRAMBLE_SIZE);
+	SHA1Final(out, &ctx);
+
+	xor(out, hash1, out, SCRAMBLE_SIZE);
+}
+
+int
+scramble_check(const unsigned char *scramble, const unsigned char *salt,
+	       const unsigned char *hash2)
+{
+	SHA1_CTX ctx;
+	unsigned char candidate_hash2[SCRAMBLE_SIZE];
+
+	SHA1Init(&ctx);
+	SHA1Update(&ctx, salt, SCRAMBLE_SIZE);
+	SHA1Update(&ctx, hash2, SCRAMBLE_SIZE);
+	SHA1Final(candidate_hash2, &ctx);
+
+	xor(candidate_hash2, candidate_hash2, scramble, SCRAMBLE_SIZE);
+
+	return memcmp(hash2, candidate_hash2, SCRAMBLE_SIZE);
+}

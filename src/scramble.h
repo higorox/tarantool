@@ -1,5 +1,3 @@
-#ifndef TARANTOOL_IPROTO_H_INCLUDED
-#define TARANTOOL_IPROTO_H_INCLUDED
 /*
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -28,6 +26,50 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+/**
+ * These are the core bits of the built-in Tarantool
+ * authentication. They implement the same algorithm as
+ * in MySQL 4.1 authentication:
+ *
+ * SERVER:  seed = create_random_string()
+ *          send(seed)
+ *
+ * CLIENT:  recv(seed)
+ *          hash1 = sha1("password")
+ *          hash2 = sha1(hash1)
+ *          reply = xor(hash1, sha1(seed, hash2))
+ *
+ *          ^^ these steps are done in scramble_prepare()
+ *
+ *          send(reply)
+ *
+ *
+ * SERVER:  recv(reply)
+ *
+ *          hash1 = xor(reply, sha1(seed, hash2))
+ *          candidate_hash2 = sha1(hash1)
+ *          check(candidate_hash2 == hash2)
+ *
+ *          ^^ these steps are done in scramble_check()
+ */
+
+enum { SCRAMBLE_SIZE = 20 };
+
+/**
+ * Prepare a scramble (cipher) to send over the wire
+ * to the server for authentication.
+ */
 void
-iproto_init(const char *bind_ipaddr, int primary_port);
-#endif
+scramble_prepare(unsigned char *out, const unsigned char *password,
+		 const unsigned char *salt);
+
+
+/**
+ * Verify a password.
+ *
+ * @retval 0  passwords do match
+ * @retval !0 passwords do not match
+ */
+int
+scramble_check(const unsigned char *scramble,
+	       const unsigned char *salt, const unsigned char *hash2);

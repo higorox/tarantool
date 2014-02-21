@@ -45,6 +45,7 @@
 #include "msgpuck/msgpuck.h"
 #include "replication.h"
 #include "third_party/base64.h"
+#include "coio.h"
 
 class IprotoConnectionShutdown: public Exception
 {
@@ -763,6 +764,20 @@ iproto_request_new(struct iproto_connection *con,
 	return ireq;
 }
 
+const char *
+iproto_greeting(int *salt)
+{
+	static __thread char greeting[IPROTO_GREETING_SIZE + 1];
+	char base64buf[SESSION_SEED_SIZE * 4 / 3 + 5];
+
+	base64_encode((char *) salt, SESSION_SEED_SIZE,
+		      base64buf, sizeof(base64buf));
+	snprintf(greeting, sizeof(greeting),
+		 "Tarantool %-20s %-32s\n%-63s\n",
+		 tarantool_version(), custom_proc_title, base64buf);
+	return greeting;
+}
+
 /**
  * Handshake a connection: invoke the on-connect trigger
  * and possibly authenticate. Try to send the client an error
@@ -776,6 +791,8 @@ iproto_process_connect(struct iproto_request *request)
 	int fd = con->input.fd;
 	try {              /* connect. */
 		con->session = session_create(fd, con->cookie);
+		coio_write(&con->input, iproto_greeting(con->session->salt),
+			   IPROTO_GREETING_SIZE);
 	} catch (ClientError *e) {
 		iproto_reply_error(&iobuf->out, e, request->header[IPROTO_SYNC]);
 		try {
@@ -809,24 +826,6 @@ iproto_process_disconnect(struct iproto_request *request)
 }
 
 /** }}} */
-
-const char *
-iproto_greeting()
-{
-	static __thread char greeting[IPROTO_GREETING_SIZE + 1];
-	const int SEED_ARRAY_SIZE = IPROTO_SEED_SIZE/sizeof(int);
-	int seed[SEED_ARRAY_SIZE];
-	char base64buf[sizeof(seed) * 4 / 3 + 5];
-
-	for (int i = 0; i < SEED_ARRAY_SIZE; i++)
-		seed[i] = rand();
-	base64_encode((char *) seed, sizeof(seed),
-		      base64buf, sizeof(base64buf));
-	snprintf(greeting, sizeof(greeting),
-		 "Tarantool %-20s %-32s\n%-63s\n",
-		 tarantool_version(), custom_proc_title, base64buf);
-	return greeting;
-}
 
 /**
  * Create a connection context and start input.
