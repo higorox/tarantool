@@ -60,8 +60,8 @@ enum { SCRAMBLE_SIZE = 20 };
  * to the server for authentication.
  */
 void
-scramble_prepare(unsigned char *out, const unsigned char *password,
-		 const unsigned char *salt);
+scramble_prepare(void *out, const void *salt, const void *password,
+		 int password_len);
 
 
 /**
@@ -71,5 +71,4 @@ scramble_prepare(unsigned char *out, const unsigned char *password,
  * @retval !0 passwords do not match
  */
 int
-scramble_check(const unsigned char *scramble,
-	       const unsigned char *salt, const unsigned char *hash2);
+scramble_check(const void *scramble, const void *salt, const void *hash2);

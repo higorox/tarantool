@@ -40,8 +40,8 @@ xor(unsigned char *to, unsigned const char *left,
 }
 
 void
-scramble_prepare(unsigned char *out, const unsigned char *password,
-		 const unsigned char *salt)
+scramble_prepare(void *out, const void *salt, const void *password,
+		 int password_len)
 {
 
 	unsigned char hash1[SCRAMBLE_SIZE];
@@ -49,7 +49,7 @@ scramble_prepare(unsigned char *out, const unsigned char *password,
 	SHA1_CTX ctx;
 
 	SHA1Init(&ctx);
-	SHA1Update(&ctx, password, strlen((const char *) password));
+	SHA1Update(&ctx, password, password_len);
 	SHA1Final(hash1, &ctx);
 
 	SHA1Init(&ctx);
@@ -65,8 +65,7 @@ scramble_prepare(unsigned char *out, const unsigned char *password,
 }
 
 int
-scramble_check(const unsigned char *scramble, const unsigned char *salt,
-	       const unsigned char *hash2)
+scramble_check(const void *scramble, const void *salt, const void *hash2)
 {
 	SHA1_CTX ctx;
 	unsigned char candidate_hash2[SCRAMBLE_SIZE];
@@ -77,6 +76,13 @@ scramble_check(const unsigned char *scramble, const unsigned char *salt,
 	SHA1Final(candidate_hash2, &ctx);
 
 	xor(candidate_hash2, candidate_hash2, scramble, SCRAMBLE_SIZE);
+	/*
+	 * candidate_hash2 now supposedly contains hash1, turn it
+	 * into hash2
+	 */
+	SHA1Init(&ctx);
+	SHA1Update(&ctx, candidate_hash2, SCRAMBLE_SIZE);
+	SHA1Final(candidate_hash2, &ctx);
 
 	return memcmp(hash2, candidate_hash2, SCRAMBLE_SIZE);
 }
