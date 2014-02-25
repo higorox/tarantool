@@ -39,6 +39,17 @@
 #include <fiber.h>
 #include <scoped_guard.h>
 #include <third_party/base64.h>
+#include "access.h"
+
+static inline void
+access_check_space(uint8_t access, struct user *user, struct space *space)
+{
+	if (access && space->def.uid != user->uid &&
+	    space->access[user->auth_token] & ~access) {
+		tnt_raise(ClientError, ER_ACCESS_DENIED,
+			  priv_name(access), user->name);
+	}
+}
 
 #if 0
 static const char *
@@ -82,14 +93,23 @@ static void
 execute_replace(struct request *request, struct txn *txn, struct port *port)
 {
 	(void) port;
-	txn_add_redo(txn, request);
+	struct user *user = user();
+	/*
+	 * If a user has a global permission, clear the respective
+	 * privilege from the list of privileges required
+	 * to execute the request.
+	 */
+	uint8_t access = PRIV_W & ~user->universal_access;
 
 	struct space *space = space_find(request->space_id);
+
+	access_check_space(access, user, space);
 	struct tuple *new_tuple = tuple_new(space->format, request->tuple,
 					    request->tuple_end);
 	TupleGuard guard(new_tuple);
 	space_validate_tuple(space, new_tuple);
 	enum dup_replace_mode mode = dup_replace_mode(request->type);
+	txn_add_redo(txn, request);
 	txn_replace(txn, space, NULL, new_tuple, mode);
 }
 
@@ -98,11 +118,14 @@ execute_update(struct request *request, struct txn *txn,
 	       struct port *port)
 {
 	(void) port;
-	txn_add_redo(txn, request);
+	struct user *user = user();
+	uint8_t access = PRIV_W & ~user->universal_access;
+
 	/* Parse UPDATE request. */
 	/** Search key  and key part count. */
 
 	struct space *space = space_find(request->space_id);
+	access_check_space(access, user, space);
 	Index *pk = index_find(space, 0);
 	/* Try to find the tuple by primary key. */
 	const char *key = request->key;
@@ -110,6 +133,7 @@ execute_update(struct request *request, struct txn *txn,
 	primary_key_validate(pk->key_def, key, part_count);
 	struct tuple *old_tuple = pk->findByKey(key, part_count);
 
+	txn_add_redo(txn, request);
 	if (old_tuple == NULL)
 		return;
 
@@ -124,13 +148,38 @@ execute_update(struct request *request, struct txn *txn,
 	txn_replace(txn, space, old_tuple, new_tuple, DUP_INSERT);
 }
 
-/** }}} */
+static void
+execute_delete(struct request *request, struct txn *txn, struct port *port)
+{
+	(void) port;
+	struct user *user = user();
+	uint8_t access = PRIV_W & ~user->universal_access;
+
+	struct space *space = space_find(request->space_id);
+	access_check_space(access, user, space);
+
+	/* Try to find tuple by primary key */
+	Index *pk = index_find(space, 0);
+	const char *key = request->key;
+	uint32_t part_count = mp_decode_array(&key);
+	primary_key_validate(pk->key_def, key, part_count);
+	struct tuple *old_tuple = pk->findByKey(key, part_count);
+
+	txn_add_redo(txn, request);
+	if (old_tuple == NULL)
+		return;
+	txn_replace(txn, space, old_tuple, NULL, DUP_REPLACE_OR_INSERT);
+}
+
 
 static void
 execute_select(struct request *request, struct txn *txn, struct port *port)
 {
 	(void) txn;
+	struct user *user = user();
+	uint8_t access = PRIV_R & ~user->universal_access;
 	struct space *space = space_find(request->space_id);
+	access_check_space(access, user, space);
 	Index *index = index_find(space, request->index_id);
 
 	ERROR_INJECT_EXCEPTION(ERRINJ_TESTING);
@@ -158,25 +207,7 @@ execute_select(struct request *request, struct txn *txn, struct port *port)
 	}
 }
 
-static void
-execute_delete(struct request *request, struct txn *txn, struct port *port)
-{
-	(void) port;
-	txn_add_redo(txn, request);
-	struct space *space = space_find(request->space_id);
-
-	/* Try to find tuple by primary key */
-	Index *pk = index_find(space, 0);
-	const char *key = request->key;
-	uint32_t part_count = mp_decode_array(&key);
-	primary_key_validate(pk->key_def, key, part_count);
-	struct tuple *old_tuple = pk->findByKey(key, part_count);
-
-	if (old_tuple == NULL)
-		return;
-
-	txn_replace(txn, space, old_tuple, NULL, DUP_REPLACE_OR_INSERT);
-}
+/** }}} */
 
 void
 request_check_type(uint32_t type)

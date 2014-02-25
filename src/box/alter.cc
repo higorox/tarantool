@@ -28,6 +28,7 @@
  */
 #include "alter.h"
 #include "schema.h"
+#include "access.h"
 #include "space.h"
 #include "txn.h"
 #include "tuple.h"
@@ -39,9 +40,10 @@
 
 /** _space columns */
 #define ID			0
-#define ARITY			1
+#define UID			1
 #define NAME			2
-#define FLAGS			3
+#define ARITY			3
+#define FLAGS			4
 /** _index columns */
 #define INDEX_ID		1
 #define INDEX_TYPE		3
@@ -125,6 +127,7 @@ space_def_create_from_tuple(struct space_def *def, struct tuple *tuple,
 			    uint32_t errcode)
 {
 	def->id = tuple_field_u32(tuple, ID);
+	def->uid = tuple_field_u32(tuple, UID);
 	def->arity = tuple_field_u32(tuple, ARITY);
 	int n = snprintf(def->name, sizeof(def->name),
 			 "%s", tuple_field_cstr(tuple, NAME));
@@ -142,6 +145,15 @@ space_def_create_from_tuple(struct space_def *def, struct tuple *tuple,
 			 (unsigned) def->id,
 			 (unsigned) SC_SYSTEM_ID_MIN,
 			 (unsigned) SC_SYSTEM_ID_MAX);
+	}
+	/**
+	 * Ensure you can only set uid field to your
+	 * own user id. Or you must be a superuser.
+	 */
+	struct user *user = user();
+	if (def->uid != user->uid && user->uid != SUPERUSER_UID) {
+		tnt_raise(ClientError, ER_ACCESS_DENIED,
+			  "Write", user->name);
 	}
 }
 
@@ -413,6 +425,8 @@ alter_space_do(struct txn *txn, struct alter_space *alter,
 	 * the recovery phase.
 	 */
 	alter->new_space->engine = alter->old_space->engine;
+	memcpy(alter->new_space->access, alter->old_space->access,
+	       sizeof(alter->old_space->access));
 	/*
 	 * Change the new space: build the new index, rename,
 	 * change arity.
@@ -1040,12 +1054,58 @@ on_replace_dd_index(struct trigger * /* trigger */, void *event)
 	scoped_guard.is_active = false;
 }
 
+/**
+ * A trigger invoked on replace in the user table.
+ * The user table hash2 should contain base64 of hash2.
+ * This helps avoid trivial errors when a plain text
+ * password is saved in this table.
+ */
+static void
+on_replace_dd_user(struct trigger * /* trigger */, void * /* event */)
+{
+	/* can only delete user if it has no spaces. */
+	/* can only delete user if it has no grants. */
+}
+
+/**
+ * A trigger invoked on replace in a space containing
+ * functions on which there were defined any grants.
+ */
+static void
+on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
+{
+	/* can only delete func if it has no grants. */
+}
+
+/**
+ * A trigger invoked on replace in the space containing
+ * all granted privileges.
+ */
+static void
+on_replace_dd_priv(struct trigger * /* trigger */, void * /* event */)
+{
+	/* can only grant to an existing object. */
+	/* can only grant if you have the right to grant. */
+}
+
 struct trigger alter_space_on_replace_space = {
 	rlist_nil, on_replace_dd_space, NULL, NULL
 };
 
 struct trigger alter_space_on_replace_index = {
 	rlist_nil, on_replace_dd_index, NULL, NULL
+};
+
+struct trigger on_replace_user = {
+	rlist_nil, on_replace_dd_user, NULL, NULL
+};
+
+struct trigger on_replace_func = {
+	rlist_nil, on_replace_dd_func, NULL, NULL
+};
+
+struct trigger on_replace_priv = {
+	rlist_nil, on_replace_dd_priv, NULL, NULL
 };
 
 /* vim: set foldmethod=marker */

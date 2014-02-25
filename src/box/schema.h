@@ -40,11 +40,11 @@ enum schema_id {
 	/** Space id of _index. */
 	SC_INDEX_ID = 288,
 	/** Space id of _user. */
-	SC_PROC_ID = 296,
+	SC_FUNC_ID = 296,
 	/** Space id of _user. */
 	SC_USER_ID = 304,
 	/** Space id of _priv. */
-	SC_GRANT_ID = 312,
+	SC_PRIV_ID = 312,
 	/** End of the reserved range of system spaces. */
 	SC_SYSTEM_ID_MAX = 511
 };
@@ -116,5 +116,11 @@ void
 space_end_recover();
 
 struct space *schema_space(uint32_t id);
+
+struct func *
+func_cache_find(const char *name, uint32_t name_len);
+
+struct func *
+func_cache_replace(struct func *);
 
 #endif /* INCLUDES_TARANTOOL_BOX_SCHEMA_H */

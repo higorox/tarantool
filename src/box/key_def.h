@@ -39,6 +39,7 @@ enum {
 	BOX_INDEX_MAX = 10,
 	BOX_NAME_MAX = 32,
 	BOX_FIELD_MAX = INT32_MAX,
+	BOX_USER_MAX = 32,
 	/**
 	 * A fairly arbitrary limit which is still necessary
 	 * to keep tuple_format object small.
@@ -189,6 +190,8 @@ key_def_check(struct key_def *key_def);
 struct space_def {
 	/** Space id. */
 	uint32_t id;
+	/** User id of the creator of the space */
+	uint32_t uid;
 	/**
 	 * If not set (is 0), any tuple in the
 	 * space can have any number of fields.
@@ -230,5 +233,12 @@ key_mp_type_validate(enum field_type key_type, enum mp_type mp_type,
 		tnt_raise(ClientError, err, field_no,
 			  field_type_strs[key_type]);
 }
+
+struct func_def {
+	uint32_t id;
+	uint32_t uid;
+	char name[BOX_NAME_MAX + 1];
+	uint8_t access[BOX_USER_MAX];
+};
 
 #endif /* TARANTOOL_BOX_KEY_DEF_H_INCLUDED */

@@ -1,5 +1,3 @@
-#ifndef INCLUDES_TARANTOOL_BOX_ALTER_H
-#define INCLUDES_TARANTOOL_BOX_ALTER_H
 /*
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -28,12 +26,31 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include "trigger.h"
+#include "access.h"
 
-extern struct trigger alter_space_on_replace_space;
-extern struct trigger alter_space_on_replace_index;
-extern struct trigger on_replace_user;
-extern struct trigger on_replace_func;
-extern struct trigger on_replace_priv;
+struct user users[BOX_USER_MAX];
 
-#endif /* INCLUDES_TARANTOOL_BOX_ALTER_H */
+const char *
+priv_name(uint8_t access)
+{
+	switch (access) {
+	case PRIV_R: return "Read";
+	case PRIV_W: return "Write";
+	default: return "Execute";
+	}
+}
+
+uint8_t
+user_replace(struct user *user)
+{
+	(void) user;
+	return 0;
+}
+
+/** Find user by id. */
+struct user *
+user_find(uint32_t uid)
+{
+	(void) uid;
+	return NULL;
+}

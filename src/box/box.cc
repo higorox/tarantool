@@ -51,6 +51,7 @@ extern "C" {
 #include "request.h"
 #include "txn.h"
 #include "fiber.h"
+#include "access.h"
 
 static void process_replica(struct port *port, struct request *request);
 static void process_ro(struct port *port, struct request *request);

@@ -32,6 +32,7 @@ tarantool_module("box"
     request.cc
     txn.cc
     box.cc
+    access.cc
     ${lua_sources}
     lua/call.cc
     lua/tuple.cc
