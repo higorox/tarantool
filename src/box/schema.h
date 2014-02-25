@@ -39,6 +39,12 @@ enum schema_id {
 	SC_SPACE_ID = 280,
 	/** Space id of _index. */
 	SC_INDEX_ID = 288,
+	/** Space id of _user. */
+	SC_PROC_ID = 296,
+	/** Space id of _user. */
+	SC_USER_ID = 304,
+	/** Space id of _priv. */
+	SC_GRANT_ID = 312,
 	/** End of the reserved range of system spaces. */
 	SC_SYSTEM_ID_MAX = 511
 };

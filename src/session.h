@@ -41,10 +41,16 @@ enum {	SESSION_SEED_SIZE = 32 };
  */
 
 struct session {
+	/** Session id. */
 	uint32_t id;
+	/** File descriptor. */
 	int fd;
+	/** Peer cookie - description of the peer. */
 	uint64_t cookie;
+	/** Authentication salt. */
 	int salt[SESSION_SEED_SIZE/sizeof(int)];
+	/** A look up key to quickly find session user. */
+	uint8_t auth_token;
 };
 
 /**
