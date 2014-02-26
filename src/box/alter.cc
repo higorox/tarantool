@@ -52,6 +52,20 @@
 
 /* {{{ Auxiliary functions and methods. */
 
+void
+access_check_ddl(uint32_t owner_uid)
+{
+	struct user *user = user();
+	/*
+	 * Only the creator of the space or superuser can modify
+	 * the space, since we don't have ALTER privilege.
+	 */
+	if (owner_uid != user->uid && user->uid != SUID) {
+		tnt_raise(ClientError, ER_ACCESS_DENIED,
+			  "Write", user->name);
+	}
+}
+
 /**
  * Create a key_def object from a record in _index
  * system space.
@@ -146,15 +160,7 @@ space_def_create_from_tuple(struct space_def *def, struct tuple *tuple,
 			 (unsigned) SC_SYSTEM_ID_MIN,
 			 (unsigned) SC_SYSTEM_ID_MAX);
 	}
-	/**
-	 * Ensure you can only set uid field to your
-	 * own user id. Or you must be a superuser.
-	 */
-	struct user *user = user();
-	if (def->uid != user->uid && user->uid != SUID) {
-		tnt_raise(ClientError, ER_ACCESS_DENIED,
-			  "Write", user->name);
-	}
+	access_check_ddl(def->uid);
 }
 
 /* }}} */
@@ -954,6 +960,7 @@ on_replace_dd_space(struct trigger * /* trigger */, void *event)
 		 */
 		trigger_set(&txn->on_rollback, &drop_space_trigger);
 	} else if (new_tuple == NULL) { /* DELETE */
+		access_check_ddl(old_space->def.uid);
 		/* Verify that the space is empty (has no indexes) */
 		if (old_space->index_count) {
 			tnt_raise(ClientError, ER_DROP_SPACE,
@@ -1031,6 +1038,7 @@ on_replace_dd_index(struct trigger * /* trigger */, void *event)
 	uint32_t iid = tuple_field_u32(old_tuple ? old_tuple : new_tuple,
 				       INDEX_ID);
 	struct space *old_space = space_find(id);
+	access_check_ddl(old_space->def.uid);
 	Index *old_index = space_index(old_space, iid);
 	struct alter_space *alter = alter_space_new();
 	auto scoped_guard =
@@ -1077,6 +1085,8 @@ static void
 on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 {
 	/* can only delete func if it has no grants. */
+	/* can only delete func you're the one who created
+	 * it or superuser. */
 }
 
 /**
@@ -1087,7 +1097,11 @@ static void
 on_replace_dd_priv(struct trigger * /* trigger */, void * /* event */)
 {
 	/* can only grant to an existing object. */
-	/* can only grant if you have the right to grant. */
+	/* can only grant if you have the right to grant (you're
+	 * the owner. */
+	/* can only revoke privilege if you're the grantor or the
+	 * owner of the object.
+	 */
 }
 
 struct trigger alter_space_on_replace_space = {
