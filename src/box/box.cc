@@ -269,6 +269,7 @@ box_reload_config(struct tarantool_cfg *old_conf, struct tarantool_cfg *new_conf
 void
 box_free(void)
 {
+	user_free();
 	schema_free();
 	tuple_free();
 	recovery_free();
@@ -284,6 +285,7 @@ box_init()
 	tuple_init(cfg.slab_alloc_arena, cfg.slab_alloc_minimal,
 		   cfg.slab_alloc_factor);
 	schema_init();
+	user_init();
 
 	/* recovery initialization */
 	recovery_init(cfg.snap_dir, cfg.wal_dir,

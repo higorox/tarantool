@@ -29,6 +29,45 @@
 #include "access.h"
 
 struct user users[BOX_USER_MAX];
+/** Bitmap of used/unused tokens */
+typedef unsigned long user_map_t;
+
+user_map_t user_map[BOX_USER_MAX/(CHAR_BIT*sizeof(user_map_t)) + 1];
+int user_map_idx = 0;
+
+uint8_t
+user_map_get_slot()
+{
+        uint32_t idx = __builtin_ffsl(user_map[user_map_idx]);
+        while (idx == 0) {
+		if (user_map_idx == sizeof(user_map)/sizeof(*user_map)) {
+			assert(false);
+			return 0;
+		}
+		user_map_idx++;
+                idx = __builtin_ffsl(user_map[user_map_idx]);
+        }
+        /*
+         * find-first-set returns bit index starting from 1,
+         * or 0 if no bit is set. Rebase the index to offset 0.
+         */
+        idx--;
+	user_map[user_map_idx] ^= ((user_map_t) 1) << idx;
+	idx += user_map_idx * sizeof(*user_map) * CHAR_BIT;
+	assert(idx < UINT8_MAX);
+	return idx;
+}
+
+void
+user_map_put_slot(uint8_t auth_token)
+{
+	memset(users + auth_token, 0, sizeof(struct user));
+	uint32_t bit_no = auth_token & (sizeof(user_map_t) * CHAR_BIT - 1);
+	auth_token /= sizeof(user_map_t) * CHAR_BIT;
+	user_map[auth_token] |= ((user_map_t) 1) << bit_no;
+	if (auth_token > user_map_idx)
+		user_map_idx = auth_token;
+}
 
 const char *
 priv_name(uint8_t access)
@@ -40,11 +79,20 @@ priv_name(uint8_t access)
 	}
 }
 
-uint8_t
+void
 user_replace(struct user *user)
 {
-	(void) user;
-	return 0;
+	user->auth_token = user_map_get_slot();
+	assert(users[user->auth_token].auth_token == 0);
+	users[user->auth_token] = *user;
+}
+
+void
+user_delete(uint32_t uid)
+{
+	struct user *user = user_find(uid);
+	assert(user->auth_token > SUID);
+	user_map_put_slot(user->auth_token);
 }
 
 /** Find user by id. */
@@ -53,4 +101,37 @@ user_find(uint32_t uid)
 {
 	(void) uid;
 	return NULL;
+}
+
+void
+user_init()
+{
+	memset(user_map, 0xFF, sizeof(user_map));
+	/*
+	 * Solve a chicken-egg problem:
+	 * we need a functional user cache entry for superuser to
+	 * perform recovery, but the superuser credentials are
+	 * stored in the snapshot. So, pre-create cache entries
+	 * for guest user and admin users here, they will be
+	 * modified with snapshot contents during recovery.
+	 */
+	struct user guest;
+	memset(&guest, 0, sizeof(guest));
+	snprintf(guest.name, sizeof(guest.name), "guest");
+	user_replace(&guest);
+	/* 0 is the auth token and user id by default. */
+	assert(guest.auth_token == 0 &&
+	       users[guest.auth_token].uid == guest.uid);
+
+	struct user admin;
+	memset(&admin, 0, sizeof(admin));
+	snprintf(guest.name, sizeof(guest.name), "admin");
+	admin.uid = SUID;
+	user_replace(&admin);
+	assert(admin.auth_token == SUID && users[admin.auth_token].uid == SUID);
+}
+
+void
+user_free()
+{
 }

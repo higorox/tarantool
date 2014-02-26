@@ -151,7 +151,7 @@ space_def_create_from_tuple(struct space_def *def, struct tuple *tuple,
 	 * own user id. Or you must be a superuser.
 	 */
 	struct user *user = user();
-	if (def->uid != user->uid && user->uid != SUPERUSER_UID) {
+	if (def->uid != user->uid && user->uid != SUID) {
 		tnt_raise(ClientError, ER_ACCESS_DENIED,
 			  "Write", user->name);
 	}
@@ -1065,6 +1065,8 @@ on_replace_dd_user(struct trigger * /* trigger */, void * /* event */)
 {
 	/* can only delete user if it has no spaces. */
 	/* can only delete user if it has no grants. */
+	/* can't drop guest user */
+	/* can't drop super user */
 }
 
 /**

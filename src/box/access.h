@@ -43,7 +43,7 @@ enum {
 	PRIV_X = 4,
 };
 
-enum { SUPERUSER_UID =  1 };
+enum { SUID =  1 };
 
 const char *
 priv_name(uint8_t access);
@@ -64,25 +64,27 @@ struct user {
 extern struct user users[];
 
 /*
- * Insert, update, or delete user object (a cache entry
- * for user)..
+ * Insert or update user object (a cache entry
+ * for user).
  * This is called from a trigger on _user table
- * and from trigger on _priv table, when modifying
- * a global grant.
+ * and from trigger on _priv table, (in the latter
+ * case only when making a grant on the universe).
  *
- * If a user already exists, update it, othrerwise
+ * If a user already exists, update it, otherwise
  * find space in users[] array and store the new
- * user in it. Return the index of the user in the
- * users[] array.
+ * user in it. Update user->auth_token
+ * with an index in the users[] array.
  *
- * If user is NULL, find the user by name, and
- * delete it from the users array.
  */
-uint8_t
+void
 user_replace(struct user *user);
 
-uint8_t
-user_delete(struct user *user);
+/**
+ * Find a user by id and delete it from the
+ * users cache.
+ */
+void
+user_delete(uint32_t uid);
 
 /** Find user by id. */
 struct user *
@@ -109,6 +111,19 @@ user_find(uint32_t uid);
  * None of these 3 solutions seems to be worth the while
  * at the moment.
  */
-#define user() (&users[fiber()->session->auth_token])
+#define user()							\
+({								\
+	struct session *s = fiber()->session;			\
+	uint8_t auth_token = s ? s->auth_token : (int) SUID;	\
+	struct user *u = &users[auth_token];			\
+	assert(u->auth_token == auth_token);			\
+	u;							\
+})
+
+void
+user_init();
+
+void
+user_free();
 
 #endif /* INCLUDES_TARANTOOL_BOX_ACCESS_H */
