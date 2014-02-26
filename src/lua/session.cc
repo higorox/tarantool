@@ -29,6 +29,7 @@
 #include "lua/session.h"
 #include "lua/utils.h"
 #include "lua/trigger.h"
+#include "box/access.h"
 
 extern "C" {
 #include <lua.h>
@@ -55,6 +56,41 @@ lbox_session_id(struct lua_State *L)
 {
 	lua_pushnumber(L, fiber()->session ? fiber()->session->id : 0);
 	return 1;
+}
+
+/** Session user id. */
+static int
+lbox_session_uid(struct lua_State *L)
+{
+	lua_pushnumber(L, fiber()->session ? fiber()->session->uid : GUEST);
+	return 1;
+}
+
+/** Session user id. */
+static int
+lbox_session_su(struct lua_State *L)
+{
+	if (lua_gettop(L) != 1)
+		luaL_error(L, "session.su(): bad arguments");
+	struct session *session = fiber()->session;
+	if (session == NULL)
+		luaL_error(L, "session.su(): session does not exit");
+	uint32_t uid;
+	uint8_t auth_token;
+	if (lua_type(L, 1) == LUA_TSTRING) {
+		size_t len;
+		const char *name = lua_tolstring(L, 1, &len);
+		struct user *user = user_find(name, len);
+		if (user == NULL)
+			luaL_error(L, "session.su(): user not found");
+		uid = user->uid;
+		auth_token = user->auth_token;
+	} else {
+
+
+	}
+	session_set_user(session, auth_token, uid);
+	return 0;
 }
 
 /**
@@ -159,6 +195,8 @@ tarantool_lua_session_init(struct lua_State *L)
 {
 	static const struct luaL_reg sessionlib[] = {
 		{"id", lbox_session_id},
+		{"uid", lbox_session_uid},
+		{"su", lbox_session_su},
 		{"fd", lbox_session_fd},
 		{"exists", lbox_session_exists},
 		{"peer", lbox_session_peer},

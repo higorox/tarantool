@@ -38,7 +38,7 @@ box.schema.space.create = function(name, options)
     if options.arity == nil then
         options.arity = 0
     end
-    _space:insert{id, options.arity, name, temporary}
+    _space:insert{id, box.session.uid(), name, options.arity, temporary}
     return box.space[id], "created"
 end
 box.schema.create_space = box.schema.space.create

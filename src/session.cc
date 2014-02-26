@@ -56,7 +56,10 @@ session_create(int fd, uint64_t cookie)
 	session->id = sid_max;
 	session->fd =  fd;
 	session->cookie = cookie;
+	session_set_user(session, GUID, GUID);
 	struct mh_i32ptr_node_t node;
+	for (int i = 0; i < SESSION_SEED_SIZE/sizeof(*session->salt); i++)
+		session->salt[i] = rand();
 	node.key = session->id;
 	node.val = session;
 
@@ -80,8 +83,6 @@ session_create(int fd, uint64_t cookie)
 		mempool_free(&session_pool, session);
 		throw;
 	}
-	for (int i = 0; i < SESSION_SEED_SIZE/sizeof(*session->salt); i++)
-		session->salt[i] = rand();
 	return session;
 }
 

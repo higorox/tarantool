@@ -31,6 +31,9 @@
 #include "trigger.h"
 
 enum {	SESSION_SEED_SIZE = 32 };
+/** Predefined user ids. */
+enum { GUID = 0, SUID =  1 };
+
 /**
  * Abstraction of a single user session:
  * for now, only provides accounting of established
@@ -51,6 +54,7 @@ struct session {
 	int salt[SESSION_SEED_SIZE/sizeof(int)];
 	/** A look up key to quickly find session user. */
 	uint8_t auth_token;
+	uint32_t uid;
 };
 
 /**
@@ -79,7 +83,6 @@ session_create(int fd, uint64_t cookie);
 void
 session_destroy(struct session *);
 
-
 /**
  * Return a file descriptor
  * associated with a session, or -1 if the
@@ -95,6 +98,14 @@ static inline bool
 session_exists(uint32_t sid)
 {
 	return session_fd(sid) >= 0;
+}
+
+/** Set session auth token and user id. */
+static inline void
+session_set_user(struct session *session, uint8_t auth_token, uint32_t uid)
+{
+	session->auth_token = auth_token;
+	session->uid = uid;
 }
 
 /* The global on-connect trigger. */

@@ -43,8 +43,6 @@ enum {
 	PRIV_X = 4,
 };
 
-enum { SUID =  1 };
-
 const char *
 priv_name(uint8_t access);
 
@@ -89,6 +87,9 @@ user_delete(uint32_t uid);
 /** Find user by id. */
 struct user *
 user_find(uint32_t uid);
+
+struct user *
+user_find_by_name(const char *name, uint32_t len);
 
 /**
  * @todo: this doesn't account for the case when a user

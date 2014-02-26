@@ -34,6 +34,7 @@ typedef unsigned long user_map_t;
 
 user_map_t user_map[BOX_USER_MAX/(CHAR_BIT*sizeof(user_map_t)) + 1];
 int user_map_idx = 0;
+struct mh_i32ptr_t *user_registry;
 
 uint8_t
 user_map_get_slot()
@@ -82,23 +83,33 @@ priv_name(uint8_t access)
 void
 user_replace(struct user *user)
 {
-	user->auth_token = user_map_get_slot();
-	assert(users[user->auth_token].auth_token == 0);
-	users[user->auth_token] = *user;
+	struct user *old = user_find(user->uid);
+	if (old == NULL) {
+		user->auth_token = user_map_get_slot();
+		old = &users[user->auth_token];
+		assert(old->auth_token == 0);
+	} else {
+		mh_i32ptr_del(users_registry, old);
+		user->auth_token = old->auth_token;
+	}
+	*old = *user;
+	mh_i32ptr_put(users_registry, old);
 }
 
 void
 user_delete(uint32_t uid)
 {
-	struct user *user = user_find(uid);
-	assert(user->auth_token > SUID);
-	user_map_put_slot(user->auth_token);
+	struct user *old = user_find(uid);
+	assert(old->auth_token > SUID);
+	user_map_put_slot(old->auth_token);
+	mh_i32ptr_del(users_registry, old);
 }
 
 /** Find user by id. */
 struct user *
 user_find(uint32_t uid)
 {
+	mh_i32ptr_get(users_registry, uid);
 	(void) uid;
 	return NULL;
 }
@@ -107,6 +118,7 @@ void
 user_init()
 {
 	memset(user_map, 0xFF, sizeof(user_map));
+	users_registry = mh_i32ptr_new();
 	/*
 	 * Solve a chicken-egg problem:
 	 * we need a functional user cache entry for superuser to
@@ -128,10 +140,13 @@ user_init()
 	snprintf(guest.name, sizeof(guest.name), "admin");
 	admin.uid = SUID;
 	user_replace(&admin);
-	assert(admin.auth_token == SUID && users[admin.auth_token].uid == SUID);
+	assert(admin.auth_token == SUID &&
+	       users[admin.auth_token].uid == SUID);
 }
 
 void
 user_free()
 {
+	if (users_registry)
+		mh_i32ptr_del(users_registy);
 }
