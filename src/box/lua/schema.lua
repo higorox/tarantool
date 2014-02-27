@@ -501,3 +501,50 @@ box.schema.user.create = function(name, opts)
     local _user = box.space[box.schema.USER_ID]
     _user:auto_increment{'', name, opts.password}
 end
+
+box.schema.user.drop = function(name)
+    local _user = box.space[box.schema.USER_ID]
+    local uid = user_resolve(user)
+    if uid == nil then
+        box.raise(box.error.ER_NO_SUCH_USER, "User "..name.."not found")
+    end
+    -- todo recursive delete of user data
+    _user:delete{uid}
+end
+
+box.schema.user.grant = function(user_name, privilege, object_type, object_name, grantor)
+    local uid = user_resolve(user_name)
+    if uid == nil then
+        box.raise(box.error.ER_NO_SUCH_USER,
+                  "User '"..user_name.."' does not exists")
+    end
+    privilege = privilege_resolve(privilege)
+    local oid = object_resolve(object_type, object_name)
+    if grantor == nil then
+        grantor = box.session.uid()
+    end
+    local _priv = box.space[box.schema.PRIV_ID]
+    _priv:replace{uid, object_type, object, grantor, privilege}
+end
+
+box.schema.user.revoke = function(user_name, privilege, object_type, object_name)
+    local uid = user_resolve(name)
+    if uid == nil then
+        box.raise(box.error.ER_NO_SUCH_USER,
+                  "User '"..name.."' does not exists")
+    end
+    privilege = privilege_resolve(privilege)
+    local oid = object_resolve(object_type, object)
+    local _priv = box.space[box.schema.PRIV_ID]
+    local tuple = _priv:select{uid, object_type, oid}
+    if tuple == nil then
+        return
+    end
+    local old_privilege = tuple[4]
+    if old_privilege ~= privilege then
+        privilege = bit.band(old_privilege, bit.bnot(privilege))
+        _priv:update({uid, object_type, oid}, { "=", 4, privilege})
+    else
+        _priv:delete{uid, object_type, oid}
+    end
+end

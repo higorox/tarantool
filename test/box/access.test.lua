@@ -1,0 +1,7 @@
+box.session.uid()
+box.session.uid(nil)
+box.session.user()
+box.session.user(nil)
+box.schema.user.password('test')
+box.schema.user.password('test1')
+box.schema.user.create('test', { password = 'test' })

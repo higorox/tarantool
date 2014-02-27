@@ -1,0 +1,27 @@
+box.session.uid()
+---
+- 1
+...
+box.session.uid(nil)
+---
+- 1
+...
+box.session.user()
+---
+- admin
+...
+box.session.user(nil)
+---
+- admin
+...
+box.schema.user.password('test')
+---
+- lL3OvhkIPOKh+Vn9Avlkx69M/Ck=
+...
+box.schema.user.password('test1')
+---
+- BsC/W2Ts4vZItfBIpxkDkGugjlw=
+...
+box.schema.user.create('test', { password = 'test' })
+---
+...
