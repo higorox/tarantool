@@ -1,3 +1,5 @@
+#ifndef INCLUDES_TARANTOOL_SESSION_H
+#define INCLUDES_TARANTOOL_SESSION_H
 /*
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -121,3 +123,4 @@ session_free();
 
 void
 session_storage_cleanup(int sid);
+#endif /* INCLUDES_TARANTOOL_SESSION_H */

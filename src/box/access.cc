@@ -27,6 +27,7 @@
  * SUCH DAMAGE.
  */
 #include "access.h"
+#include "assoc.h"
 
 struct user users[BOX_USER_MAX];
 /** Bitmap of used/unused tokens */
@@ -85,40 +86,45 @@ user_replace(struct user *user)
 {
 	struct user *old = user_find(user->uid);
 	if (old == NULL) {
-		user->auth_token = user_map_get_slot();
-		old = &users[user->auth_token];
+		uint8_t auth_token = user_map_get_slot();
+		old = users + auth_token;
 		assert(old->auth_token == 0);
-	} else {
-		mh_i32ptr_del(users_registry, old);
-		user->auth_token = old->auth_token;
+		old->auth_token = auth_token;
 	}
+	user->auth_token = old->auth_token;
 	*old = *user;
-	mh_i32ptr_put(users_registry, old);
+	struct mh_i32ptr_node_t node = { old->uid, old };
+	mh_i32ptr_put(user_registry, &node, NULL, NULL);
 }
 
 void
 user_delete(uint32_t uid)
 {
 	struct user *old = user_find(uid);
-	assert(old->auth_token > SUID);
-	user_map_put_slot(old->auth_token);
-	mh_i32ptr_del(users_registry, old);
+	if (old) {
+		assert(old->auth_token > SUID);
+		user_map_put_slot(old->auth_token);
+		old->auth_token = 0;
+		old->uid = 0;
+		mh_i32ptr_del(user_registry, uid, NULL);
+	}
 }
 
 /** Find user by id. */
 struct user *
 user_find(uint32_t uid)
 {
-	mh_i32ptr_get(users_registry, uid);
-	(void) uid;
-	return NULL;
+	mh_int_t k = mh_i32ptr_find(user_registry, uid, NULL);
+	if (k == mh_end(user_registry))
+		return NULL;
+	return (struct user *) mh_i32ptr_node(user_registry, k)->val;
 }
 
 void
 user_init()
 {
 	memset(user_map, 0xFF, sizeof(user_map));
-	users_registry = mh_i32ptr_new();
+	user_registry = mh_i32ptr_new();
 	/*
 	 * Solve a chicken-egg problem:
 	 * we need a functional user cache entry for superuser to
@@ -144,9 +150,18 @@ user_init()
 	       users[admin.auth_token].uid == SUID);
 }
 
+struct user *
+user_find_by_name(const char *name, uint32_t len)
+{
+	(void) name;
+	(void) len;
+	return NULL;
+}
+
+
 void
 user_free()
 {
-	if (users_registry)
-		mh_i32ptr_del(users_registy);
+	if (user_registry)
+		mh_i32ptr_delete(user_registry);
 }

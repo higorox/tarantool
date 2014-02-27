@@ -62,7 +62,8 @@ lbox_session_id(struct lua_State *L)
 static int
 lbox_session_uid(struct lua_State *L)
 {
-	lua_pushnumber(L, fiber()->session ? fiber()->session->uid : GUEST);
+	lua_pushnumber(L, fiber()->session ?
+		       fiber()->session->uid : (int) GUID);
 	return 1;
 }
 
@@ -75,21 +76,17 @@ lbox_session_su(struct lua_State *L)
 	struct session *session = fiber()->session;
 	if (session == NULL)
 		luaL_error(L, "session.su(): session does not exit");
-	uint32_t uid;
-	uint8_t auth_token;
+	struct user *user;
 	if (lua_type(L, 1) == LUA_TSTRING) {
 		size_t len;
 		const char *name = lua_tolstring(L, 1, &len);
-		struct user *user = user_find(name, len);
-		if (user == NULL)
-			luaL_error(L, "session.su(): user not found");
-		uid = user->uid;
-		auth_token = user->auth_token;
+		user = user_find_by_name(name, len);
 	} else {
-
-
+		user = user_find(lua_tointeger(L, 1));
 	}
-	session_set_user(session, auth_token, uid);
+	if (user == NULL)
+		luaL_error(L, "session.su(): user not found");
+	session_set_user(session, user->auth_token, user->uid);
 	return 0;
 }
 

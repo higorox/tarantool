@@ -10,12 +10,12 @@ _priv = box.space[box.schema.PRIV_ID]
 -- define schema version
 _schema:insert{'version', 1, 6}
 -- define system spaces
-_space:insert{_schema.n, SUID, 0, '_schema'}
-_space:insert{_space.n, SUID, 0, '_space'}
-_space:insert{_index.n, SUID, 0, '_index'}
-_space:insert{_func.n, SUID, 0, '_func'}
-_space:insert{_user.n, SUID, 0, '_user'}
-_space:insert{_priv.n, SUID, 0, '_priv'}
+_space:insert{_schema.n, SUID, '_schema', 0}
+_space:insert{_space.n, SUID, '_space', 0}
+_space:insert{_index.n, SUID, '_index', 0}
+_space:insert{_func.n, SUID, '_func', 0}
+_space:insert{_user.n, SUID, '_user', 0}
+_space:insert{_priv.n, SUID, '_priv', 0}
 -- define indexes
 _index:insert{_schema.n, 0, 'primary', 'tree', 1, 1, 0, 'str'}
 
@@ -28,7 +28,7 @@ _index:insert{_index.n, 0, 'primary', 'tree', 1, 2, 0, 'num', 1, 'num'}
 _index:insert{_index.n, 1, 'name', 'tree', 1, 2, 0, 'num', 2, 'str'}
 -- user name and id are unique
 _index:insert{_user.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
-_index:insert{_user.n, 1, 'name', 'tree', 1, 1, 2, 'str'}
+_index:insert{_user.n, 1, 'name', 'tree', 1, 1, 1, 'str'}
 -- function name and id are unique
 _index:insert{_func.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
 _index:insert{_func.n, 1, 'name', 'tree', 1, 1, 2, 'str'}

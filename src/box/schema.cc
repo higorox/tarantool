@@ -248,6 +248,13 @@ schema_init()
 	key_def->space_id = def.id = SC_FUNC_ID;
 	snprintf(def.name, sizeof(def.name), "_func");
 	(void) sc_space_new(&def, key_def, &on_replace_func);
+	/*
+	 * _priv - association user <-> object
+	 * The real index is defined in the snapshot.
+	 */
+	key_def->space_id = def.id = SC_PRIV_ID;
+	snprintf(def.name, sizeof(def.name), "_priv");
+	(void) sc_space_new(&def, key_def, &on_replace_priv);
 	key_def_delete(key_def);
 
 	/* _index - definition of indexes in all spaces */
@@ -264,24 +271,6 @@ schema_init()
 	/* index no */
 	key_def_set_part(key_def, 1 /* part no */, 1 /* field no */, NUM);
 	(void) sc_space_new(&def, key_def, &alter_space_on_replace_index);
-	key_def_delete(key_def);
-
-	/* _priv - association user <-> object */
-	def.id = SC_PRIV_ID;
-	snprintf(def.name, sizeof(def.name), "_priv");
-	key_def = key_def_new(def.id,
-			      0 /* index id */,
-			      "primary",
-			      TREE /* index type */,
-			      true /* unique */,
-			      3 /* part count */);
-	/* user id */
-	key_def_set_part(key_def, 0 /* part no */, 0 /* field no */, NUM);
-	/* object id */
-	key_def_set_part(key_def, 1 /* part no */, 1 /* field no */, NUM);
-	/* object type */
-	key_def_set_part(key_def, 2 /* part no */, 2 /* field no */, STRING);
-	(void) sc_space_new(&def, key_def, &on_replace_priv);
 	key_def_delete(key_def);
 }
 
