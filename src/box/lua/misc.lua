@@ -23,7 +23,7 @@ function box.counter.inc(spaceno, key)
         tuple = s:insert(data)
         if tuple ~= nil then break end
     end
-    return tuple[cnt_index]
+    return tuple[cnt_index + 1]
 end
 
 --
@@ -37,12 +37,12 @@ function box.counter.dec(spaceno, key)
 
     local tuple = s:get(key)
     if tuple == nil then return 0 end
-    if tuple[cnt_index] == 1 then
+    if tuple[cnt_index + 1] == 1 then
         s:delete(key)
         return 0
     else
         tuple = s:update(key, {{'-', cnt_index, 1}})
-        return tuple[cnt_index]
+        return tuple[cnt_index + 1]
     end
 end
 

@@ -70,18 +70,18 @@ space:create_index('primary', { type  = 'tree', parts = {0, 'num'}, unique = tru
 
 space:insert{tonumber64('18446744073709551615'), 'magic'}
 tuple = space.index['primary']:get{tonumber64('18446744073709551615')}
-num = tuple[0]
+num = tuple[1]
 num
 type(num) == 'cdata'
 num == tonumber64('18446744073709551615')
-num = tuple[0]
+num = tuple[1]
 num == tonumber64('18446744073709551615')
 space:delete{18446744073709551615ULL}
 space:insert{125ULL, 'magic'}
 tuple = space.index['primary']:get{125}
 tuple2 = space.index['primary']:get{125LL}
-num = tuple[0]
-num2 = tuple2[0]
+num = tuple[1]
+num2 = tuple2[1]
 num, num2
 type(num) == 'number'
 type(num2) == 'number'

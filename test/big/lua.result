@@ -172,7 +172,7 @@ space:insert{tonumber64('18446744073709551615'), 'magic'}
 tuple = space.index['primary']:get{tonumber64('18446744073709551615')}
 ---
 ...
-num = tuple[0]
+num = tuple[1]
 ---
 ...
 num
@@ -187,7 +187,7 @@ num == tonumber64('18446744073709551615')
 ---
 - true
 ...
-num = tuple[0]
+num = tuple[1]
 ---
 ...
 num == tonumber64('18446744073709551615')
@@ -208,10 +208,10 @@ tuple = space.index['primary']:get{125}
 tuple2 = space.index['primary']:get{125LL}
 ---
 ...
-num = tuple[0]
+num = tuple[1]
 ---
 ...
-num2 = tuple2[0]
+num2 = tuple2[1]
 ---
 ...
 num, num2
@@ -847,12 +847,10 @@ space:create_index('primary', { type = 'tree', parts = {2, 'num', 1, 'num'}, uni
 -- Print key fields in pk
 space.index['primary'].key_field
 ---
-- 0:
-    type: NUM
+- - type: NUM
+    fieldno: 3
+  - type: NUM
     fieldno: 2
-  1:
-    type: NUM
-    fieldno: 1
 ...
 space:insert{1, 2, 3, 4}
 ---

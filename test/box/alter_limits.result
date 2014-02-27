@@ -468,7 +468,7 @@ s:create_index('t1', { type = 'hash', parts = parts});
 -- and length of a lua table which has index 0 set is not correct
 #s.index[0].key_field
 ---
-- 254
+- 255
 ...
 -- cleanup
 s:drop()
@@ -626,9 +626,8 @@ s.index.primary
   n: 512
   type: HASH
   key_field:
-    0:
-      type: NUM
-      fieldno: 0
+  - type: NUM
+    fieldno: 1
   name: primary
   id: 0
 ...

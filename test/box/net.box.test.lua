@@ -121,7 +121,7 @@ for i = 1, 20 do
                 box.fiber.detach()
                 local s = string.format('%07d', i)
                 local so = remote:call('parallel_foo', s)
-                table.insert(parallel, s == so[1][0])
+                table.insert(parallel, s == so[1][1])
             end
         )
     )

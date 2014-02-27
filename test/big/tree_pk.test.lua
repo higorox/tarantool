@@ -212,7 +212,7 @@ s:insert{7}
 s:insert{8}
 
 -- it seems that all elements will be deleted:
-for t in ind:iterator() do s:delete{t[0]} end
+for t in ind:iterator() do s:delete{t[1]} end
 
 -- but (oops) some elements are left in space:
 iterate('test', 'primary', 0, 1)

@@ -23,9 +23,9 @@ function iterate(space_no, index_no, f1, f2, iterator, ...)
 		end
 	end
 	for v in box.space[space_no].index[index_no]:iterator({...}, { iterator = iterator }) do
-		local pk = get_field(v, 0);
+		local pk = get_field(v, 1);
 		local tk = '$';
-		for f = f1, f2-1, 1 do tk = (tk..(get_field(v, f))..'$'); end;
+		for f = f1 + 1, f2, 1 do tk = (tk..(get_field(v, f))..'$'); end;
 		table.insert(values, tk);
 		if pkeys[pk] ~= nil then
 			error('Duplicate tuple (primary key): '..pk);

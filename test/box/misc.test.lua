@@ -49,7 +49,7 @@ t;
 type(box);
 type(box.space);
 t = {};
-for i, v in pairs(space.index[0].key_field[0]) do
+for i, v in pairs(space.index[0].key_field[1]) do
     table.insert(t, tostring(i)..' : '..tostring(v))
 end;
 t;

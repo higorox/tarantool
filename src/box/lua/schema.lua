@@ -38,7 +38,7 @@ box.schema.space.create = function(name, options)
     if options.id then
         id = options.id
     else
-        id = _space.index[0]:max()[0]
+        id = _space.index[0]:max()[1]
         if id < box.schema.SYSTEM_ID_MAX then
             id = box.schema.SYSTEM_ID_MAX + 1
         else
@@ -58,7 +58,7 @@ box.schema.space.drop = function(space_id)
     local keys = _index:select(space_id)
     for i = #keys, 1, -1 do
         local v = keys[i]
-        _index:delete{v[0], v[1]}
+        _index:delete{v[1], v[2]}
     end
     if _space:delete{space_id} == nil then
         box.raise(box.error.ER_NO_SUCH_SPACE,
@@ -96,9 +96,9 @@ box.schema.index.create = function(space_id, name, options)
         :eselect(space_id, { limit = 1, iterator = 'LE' })
     tuple = tuple[1]
     if tuple then
-        local id = tuple[0]
+        local id = tuple[1]
         if id == space_id then
-            iid = tuple[1] + 1
+            iid = tuple[2] + 1
         end
     end
     if options.id then
@@ -159,13 +159,13 @@ box.schema.index.alter = function(space_id, index_id, options)
     end
     local tuple = _index:get{space_id, index_id}
     if options.name == nil then
-        options.name = tuple[2]
+        options.name = tuple[3]
     end
     if options.type == nil then
-        options.type = tuple[3]
+        options.type = tuple[4]
     end
     if options.unique == nil then
-        options.unique = tuple[4]
+        options.unique = tuple[5]
     end
     if options.parts == nil then
         options.parts = {tuple:slice(6)} -- not part count
@@ -450,7 +450,7 @@ function box.schema.space.bless(space)
         local max_tuple = space.index[0]:max()
         local max = 0
         if max_tuple ~= nil then
-            max = max_tuple[0]
+            max = max_tuple[1]
         end
         table.insert(tuple, 1, max + 1)
         return space:insert(tuple)
@@ -466,7 +466,7 @@ function box.schema.space.bless(space)
             for t in pk:iterator() do
                 local key = {}
                 -- ipairs does not work because pk.key_field is zero-indexed
-                for _k2, key_field in pairs(pk.key_field) do
+                for _, key_field in ipairs(pk.key_field) do
                     table.insert(key, t[key_field.fieldno])
                 end
                 space:delete(key)

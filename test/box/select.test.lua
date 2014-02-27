@@ -18,9 +18,9 @@ s.index[0]:eselect(1, { iterator = 'GE', limit = 2 })
 s.index[0]:eselect(1, { iterator = 'LE', limit = 2 })
 s.index[0]:eselect(1, { iterator = 'GE', offset = 10, limit = 2 })
 
-s.index[0]:eselect(1, { iterator = 'GE', grep = function(t) if math.fmod(t[0], 2) == 0 then return true end end, limit = 2 })
-s.index[0]:eselect(1, { iterator = 'GE', grep = function(t) if math.fmod(t[0], 2) == 0 then return true end end, limit = 2, offset = 1 })
-s.index[0]:eselect(1, { iterator = 'GE', grep = function(t) if math.fmod(t[0], 2) == 0 then return true end end, limit = 2, offset = 1, map = function(t) return { t[0] } end })
+s.index[0]:eselect(1, { iterator = 'GE', grep = function(t) if math.fmod(t[1], 2) == 0 then return true end end, limit = 2 })
+s.index[0]:eselect(1, { iterator = 'GE', grep = function(t) if math.fmod(t[1], 2) == 0 then return true end end, limit = 2, offset = 1 })
+s.index[0]:eselect(1, { iterator = 'GE', grep = function(t) if math.fmod(t[1], 2) == 0 then return true end end, limit = 2, offset = 1, map = function(t) return { t[1] } end })
 
 
 s:eselect(2)
