@@ -82,9 +82,9 @@ priv_name(uint8_t access)
 }
 
 void
-user_replace(struct user *user)
+user_cache_replace(struct user *user)
 {
-	struct user *old = user_find(user->uid);
+	struct user *old = user_cache_find(user->uid);
 	if (old == NULL) {
 		uint8_t auth_token = user_map_get_slot();
 		old = users + auth_token;
@@ -98,9 +98,9 @@ user_replace(struct user *user)
 }
 
 void
-user_delete(uint32_t uid)
+user_cache_delete(uint32_t uid)
 {
-	struct user *old = user_find(uid);
+	struct user *old = user_cache_find(uid);
 	if (old) {
 		assert(old->auth_token > SUID);
 		user_map_put_slot(old->auth_token);
@@ -112,7 +112,7 @@ user_delete(uint32_t uid)
 
 /** Find user by id. */
 struct user *
-user_find(uint32_t uid)
+user_cache_find(uint32_t uid)
 {
 	mh_int_t k = mh_i32ptr_find(user_registry, uid, NULL);
 	if (k == mh_end(user_registry))
@@ -120,8 +120,16 @@ user_find(uint32_t uid)
 	return (struct user *) mh_i32ptr_node(user_registry, k)->val;
 }
 
+struct user *
+user_cache_find_by_name(const char *name, uint32_t len)
+{
+	(void) name;
+	(void) len;
+	return NULL;
+}
+
 void
-user_init()
+user_cache_init()
 {
 	memset(user_map, 0xFF, sizeof(user_map));
 	user_registry = mh_i32ptr_new();
@@ -136,7 +144,7 @@ user_init()
 	struct user guest;
 	memset(&guest, 0, sizeof(guest));
 	snprintf(guest.name, sizeof(guest.name), "guest");
-	user_replace(&guest);
+	user_cache_replace(&guest);
 	/* 0 is the auth token and user id by default. */
 	assert(guest.auth_token == 0 &&
 	       users[guest.auth_token].uid == guest.uid);
@@ -145,22 +153,13 @@ user_init()
 	memset(&admin, 0, sizeof(admin));
 	snprintf(guest.name, sizeof(guest.name), "admin");
 	admin.uid = SUID;
-	user_replace(&admin);
+	user_cache_replace(&admin);
 	assert(admin.auth_token == SUID &&
 	       users[admin.auth_token].uid == SUID);
 }
 
-struct user *
-user_find_by_name(const char *name, uint32_t len)
-{
-	(void) name;
-	(void) len;
-	return NULL;
-}
-
-
 void
-user_free()
+user_cache_free()
 {
 	if (user_registry)
 		mh_i32ptr_delete(user_registry);

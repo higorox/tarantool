@@ -75,21 +75,21 @@ extern struct user users[];
  *
  */
 void
-user_replace(struct user *user);
+user_cache_replace(struct user *user);
 
 /**
  * Find a user by id and delete it from the
  * users cache.
  */
 void
-user_delete(uint32_t uid);
+user_cache_delete(uint32_t uid);
 
 /** Find user by id. */
 struct user *
-user_find(uint32_t uid);
+user_cache_find(uint32_t uid);
 
 struct user *
-user_find_by_name(const char *name, uint32_t len);
+user_cache_find_by_name(const char *name, uint32_t len);
 
 /**
  * @todo: this doesn't account for the case when a user
@@ -122,9 +122,9 @@ user_find_by_name(const char *name, uint32_t len);
 })
 
 void
-user_init();
+user_cache_init();
 
 void
-user_free();
+user_cache_free();
 
 #endif /* INCLUDES_TARANTOOL_BOX_ACCESS_H */

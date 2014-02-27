@@ -34,6 +34,7 @@
 #include "tuple.h"
 #include "fiber.h" /* for gc_pool */
 #include "scoped_guard.h"
+#include "third_party/base64.h"
 #include <new> /* for placement new */
 #include <stdio.h> /* snprintf() */
 #include <ctype.h>
@@ -49,6 +50,9 @@
 #define INDEX_TYPE		3
 #define INDEX_IS_UNIQUE		4
 #define INDEX_PART_COUNT	5
+
+/** _user columns */
+#define HASH2                   3
 
 /* {{{ Auxiliary functions and methods. */
 
@@ -1062,19 +1066,146 @@ on_replace_dd_index(struct trigger * /* trigger */, void *event)
 	scoped_guard.is_active = false;
 }
 
+/* {{{ access control */
+
+/** True if the space has records identified by key 'uid'
+ * Uses 'owner' index.
+ */
+bool
+space_has_data(uint32_t id, uint32_t iid, uint32_t uid)
+{
+	struct space *space = space_by_id(id);
+	if (space == NULL)
+		return false;
+
+	Index *index = space_index(space, iid);
+	if (index == NULL)
+		return false;
+	assert(strcmp(index->key_def->name, "owner") == 0);
+	struct iterator *it = index->position();
+
+#if 0
+	char key_buf[10];
+	key_format(key_buf, sizeof(key_buf), "%u", uid);
+#endif
+	index->initIterator(it, ITER_EQ, (char *) &uid, 1);
+	if (it->next(it))
+		return true;
+	return false;
+}
+
+bool
+user_has_data(uint32_t uid)
+{
+	uint32_t spaces[] = { SC_SPACE_ID, SC_FUNC_ID, SC_PRIV_ID };
+	uint32_t *end = spaces + sizeof(spaces)/sizeof(*spaces);
+	for (uint32_t *i = spaces; i < end; i++) {
+		if (space_has_data(*i, 1, uid))
+			return true;
+	}
+	return false;
+}
+
+void
+user_create_from_tuple(struct user *user, struct tuple *tuple)
+{
+	memset(user, 0, sizeof(*user));
+	user->uid = tuple_field_u32(tuple, ID);
+	const char *name = tuple_field_cstr(tuple, NAME);
+	uint32_t len = strlen(name);
+	if (len >= sizeof(user->name)) {
+		tnt_raise(ClientError, ER_CREATE_USER,
+			  name, "user name is too long");
+	}
+	snprintf(user->name, sizeof(user->name), "%s", name);
+	/*
+	 * HASH2 field in _user space should contain
+	 * base64_encode(sha1(sha1(password)).
+	 * Check for trivial errors when a plain text
+	 * password is saved in this field instead.
+	 */
+	if (tuple_arity(tuple) <= HASH2)
+		return;
+	const char *hash2_base64 = tuple_field_cstr(tuple, HASH2);
+	len = strlen(hash2_base64);
+#if 0
+	if (len != 0 && len != SCRAMBLE_LEN_BASE64) {
+		tnt_raise(ClientError, ER_CREATE_USER,
+			  user->name, "invalid user password");
+	}
+#endif
+	base64_decode(hash2_base64, len, user->hash2, sizeof(user->hash2));
+}
+
+static void
+user_cache_remove_user(struct trigger * /* trigger */, void *event)
+{
+	struct txn *txn = (struct txn *) event;
+	uint32_t uid = tuple_field_u32(txn->old_tuple ?
+				       txn->old_tuple : txn->new_tuple, ID);
+	user_cache_delete(uid);
+}
+
+static struct trigger drop_user_trigger =
+	{ rlist_nil, user_cache_remove_user, NULL, NULL };
+
+static void
+user_cache_replace_user(struct trigger * /* trigger */, void *event)
+{
+	struct txn *txn = (struct txn *) event;
+	struct user user;
+	user_create_from_tuple(&user, txn->new_tuple);
+	user_cache_replace(&user);
+}
+
+static struct trigger modify_user_trigger =
+	{ rlist_nil, user_cache_replace_user, NULL, NULL };
+
 /**
  * A trigger invoked on replace in the user table.
- * The user table hash2 should contain base64 of hash2.
- * This helps avoid trivial errors when a plain text
- * password is saved in this table.
  */
 static void
-on_replace_dd_user(struct trigger * /* trigger */, void * /* event */)
+on_replace_dd_user(struct trigger * /* trigger */, void *event)
 {
-	/* can only delete user if it has no spaces. */
-	/* can only delete user if it has no grants. */
-	/* can't drop guest user */
-	/* can't drop super user */
+	struct txn *txn = (struct txn *) event;
+	struct tuple *old_tuple = txn->old_tuple;
+	struct tuple *new_tuple = txn->new_tuple;
+
+	uint32_t uid = tuple_field_u32(old_tuple ?
+				       old_tuple : new_tuple, ID);
+	struct user *old_user = user_cache_find(uid);
+	if (new_tuple != NULL && old_user == NULL) { /* INSERT */
+		struct user user;
+		user_create_from_tuple(&user, new_tuple);
+		(void) user_cache_replace(&user);
+		trigger_set(&txn->on_rollback, &drop_user_trigger);
+	} else if (new_tuple == NULL) { /* DELETE */
+		access_check_ddl(uid);
+		/* Can't drop guest or super user */
+		if (uid == GUID || uid == SUID) {
+			tnt_raise(ClientError, ER_DROP_USER,
+				  old_user->name, "the user is a system user");
+		}
+		/*
+		 * Can only delete user if it has no spaces,
+		 * no functions and no grants.
+		 */
+		if (user_has_data(uid)) {
+			tnt_raise(ClientError, ER_DROP_USER,
+				  old_user->name, "the user has objects");
+		}
+		trigger_set(&txn->on_commit, &drop_user_trigger);
+	} else { /* UPDATE, REPLACE */
+		assert(old_user != NULL && new_tuple != NULL);
+		/*
+		 * Allow change of user properties (name,
+		 * password) but first check that the change is
+		 * correct.
+		 */
+		struct user user;
+		user_create_from_tuple(&user, new_tuple);
+		trigger_set(&txn->on_commit, &modify_user_trigger);
+	}
 }
 
 /**
@@ -1084,9 +1215,33 @@ on_replace_dd_user(struct trigger * /* trigger */, void * /* event */)
 static void
 on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 {
-	/* can only delete func if it has no grants. */
-	/* can only delete func you're the one who created
-	 * it or superuser. */
+#if 0
+	struct txn *txn = (struct txn *) event;
+	struct tuple *old_tuple = txn->old_tuple;
+	struct tuple *new_tuple = txn->new_tuple;
+
+	uint32_t fid = tuple_field_u32(old_tuple ?
+				       old_tuple : new_tuple, ID);
+	struct func_def *old_func = func_cache_find(fid);
+	if (new_tuple != NULL && old_func == NULL) { /* INSERT */
+		struct func_def func;
+		func_def_create_from_tuple(&func, new_tuple);
+		(void) func_cache_replace(&func);
+		trigger_set(&txn->on_rollback, &drop_func_trigger);
+	} else if (new_tuple == NULL) { /* DELETE */
+		struct func_def func;
+		func_def_create_from_tuple(&func, old_tuple);
+		/*
+		 * Can only delete func you're the one who created
+		 * it or a superuser.
+		 */
+		access_check_ddl(func.uid);
+		/* @todo can only delete func if it has no grants */
+		trigger_set(&txn->on_commit, &drop_func_trigger);
+	} else { /* UPDATE, REPLACE */
+		/* do nothing */
+	}
+#endif
 }
 
 /**
@@ -1096,13 +1251,42 @@ on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 static void
 on_replace_dd_priv(struct trigger * /* trigger */, void * /* event */)
 {
-	/* can only grant to an existing object. */
-	/* can only grant if you have the right to grant (you're
-	 * the owner. */
-	/* can only revoke privilege if you're the grantor or the
-	 * owner of the object.
-	 */
+#if 0
+	struct priv_def priv;
+	struct txn *txn = (struct txn *) event;
+	struct tuple *old_tuple = txn->old_tuple;
+	struct tuple *new_tuple = txn->new_tuple;
+
+	if (old_tuple && new_tuple) {
+		tnt_raise(ClientError, ER_GRANT,
+			  "can't modify an existing privilege");
+	}
+
+	if (new_tuple) {                        /* grant */
+		/* Can only grant to an existing object */
+		/* Can only grant if you have the right to grant:
+		 *	- you're the owner of the object.
+		 *	- (in the future) you've got the grant
+		 *	  option
+		 */
+	} else {                                /* revoke */
+		/*
+		 * @todo: can only revoke privilege if you're the
+		 *  grantor or the owner of the object.
+		 */
+		assert(old_tuple);
+		struct privilege priv;
+		priv_create_from_tuple(&priv, old_tuple);
+		/* @todo can only delete func if it has no grants */
+		trigger_set(&txn->on_commit, &drop_func_trigger);
+	}
+
+	uint32_t object_id = tuple_field_u32(?
+					     old_tuple : new_tuple, ID);
+#endif
 }
+
+/* }}} access control */
 
 struct trigger alter_space_on_replace_space = {
 	rlist_nil, on_replace_dd_space, NULL, NULL

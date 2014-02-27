@@ -80,9 +80,9 @@ lbox_session_su(struct lua_State *L)
 	if (lua_type(L, 1) == LUA_TSTRING) {
 		size_t len;
 		const char *name = lua_tolstring(L, 1, &len);
-		user = user_find_by_name(name, len);
+		user = user_cache_find_by_name(name, len);
 	} else {
-		user = user_find(lua_tointeger(L, 1));
+		user = user_cache_find(lua_tointeger(L, 1));
 	}
 	if (user == NULL)
 		luaL_error(L, "session.su(): user not found");

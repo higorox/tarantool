@@ -41,5 +41,5 @@ _index:insert{_priv.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
 
 -- 
 -- Pre-create user and grants
-_user:insert{GUID, nil, 'guest'}
-_user:insert{SUID, nil, 'admin'}
+_user:insert{GUID, '', 'guest'}
+_user:insert{SUID, '', 'admin'}
