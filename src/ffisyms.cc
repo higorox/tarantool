@@ -1,5 +1,6 @@
 #include <bit/bit.h>
 #include <lib/msgpuck/msgpuck.h>
+#include "scramble.h"
 
 /*
  * A special hack to cc/ld to keep symbols in an optimized binary.
@@ -9,5 +10,6 @@ void *ffi_symbols[] = {
 	(void *) bswap_u32,
 	(void *) bswap_u64,
 	(void *) mp_bswap_float,
-	(void *) mp_bswap_double
+	(void *) mp_bswap_double,
+	(void *) password_prepare
 };

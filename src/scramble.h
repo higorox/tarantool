@@ -1,3 +1,5 @@
+#ifndef INCLUDES_TARANTOOL_SCRAMBLE_H
+#define INCLUDES_TARANTOOL_SCRAMBLE_H
 /*
  * Redistribution and use in source and binary forms, with or
  * without modification, are permitted provided that the following
@@ -26,6 +28,9 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#if defined(__cplusplus)
+extern "C" {
+#endif
 /**
  * These are the core bits of the built-in Tarantool
  * authentication. They implement the same algorithm as
@@ -82,3 +87,7 @@ scramble_check(const void *scramble, const void *salt, const void *hash2);
 void
 password_prepare(const char *password, int len, char *out, int out_len);
 
+#if defined(__cplusplus)
+} /* extern "C" */
+#endif
+#endif /* INCLUDES_TARANTOOL_SCRAMBLE_H */

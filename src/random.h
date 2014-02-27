@@ -28,13 +28,13 @@
  * THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#ifdef __cplusplus
+#if defined(__cplusplus)
 extern "C" {
 #endif
 void
 random_init(void);
 
-#ifdef __cplusplus
+#if defined(__cplusplus)
 }
 #endif /* extern "C" */
 #endif /* INCLUDES_TARANTOOL_RANDOM_H */

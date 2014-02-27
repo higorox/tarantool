@@ -255,7 +255,7 @@ function box.schema.space.bless(space)
     index_mt.count = function(index, key, opts)
         local count = 0
         local iterator
-        
+
         if opts and opts.iterator ~= nil then
             iterator = opts.iterator
         else
@@ -263,7 +263,7 @@ function box.schema.space.bless(space)
         end
 
         key = keify(key)
-        
+
         if #key == 0 then
             return #index.idx
         end
@@ -452,3 +452,52 @@ function box.schema.space.bless(space)
 end
 
 box.schema.user = {}
+
+local function privilege_resolve(privilege)
+    local numeric = 0
+    if type(privilege) == 'string' then
+        if string.find(privilege, 'read') then
+            numeric = numeric + 1
+        end
+        if string.find(privilege, 'write') then
+            numeric = numeric + 2
+        end
+        if string.find(privilege, 'execute') then
+            numeric = numeric + 4
+        end
+    else
+        numeric = privilege
+    end
+    return numeric
+end
+
+box.schema.user.password = function(password)
+    local BUF_SIZE = 128
+    local buf = ffi.new("char[?]", BUF_SIZE)
+    ffi.C.password_prepare(password, #password, buf, BUF_SIZE)
+    return ffi.string(buf)
+end
+
+box.schema.user.passwd = function(new_password)
+    local uid = box.session.uid()
+    local _user = box.space[box.schema.USER_ID]
+    _user:update({uid}, { "=", 3, box.schema.user.password(new_password) })
+end
+
+box.schema.user.create = function(name, opts)
+    local user = user_resolve(name)
+    if user then
+        box.raise(box.error.ER_USER_EXISTS,
+                  "User '"..user.."' already exists")
+    end
+    if opts == nil then
+        opts = {}
+    end
+    if opts.password then
+        opts.password = box.schema.user.password(opts.password)
+    else
+        opts.password = ""
+    end
+    local _user = box.space[box.schema.USER_ID]
+    _user:auto_increment{'', name, opts.password}
+end
