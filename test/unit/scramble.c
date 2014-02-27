@@ -4,10 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "unit.h"
 
-int main()
+void
+test_scramble()
 {
-	random_init();
 	int salt[SCRAMBLE_SIZE/sizeof(int)];
 	for (int i = 0; i < sizeof(salt)/sizeof(int); i++)
 		salt[i] = rand();
@@ -39,6 +40,26 @@ int main()
 	scramble_prepare(scramble, salt, password, 0);
 
 	printf("%d\n", scramble_check(scramble, salt, hash2) != 0);
+}
+
+void
+test_password_prepare()
+{
+	char buf[SCRAMBLE_BASE64_SIZE * 2];
+	int password[5];
+	for (int i = 0; i < sizeof(password)/sizeof(int); i++)
+		password[i] = rand();
+	password_prepare((char *) password, sizeof(password),
+			 buf, sizeof(buf));
+	fail_unless(strlen(buf) == SCRAMBLE_BASE64_SIZE);
+}
+
+int main()
+{
+	random_init();
+
+	test_scramble();
+	test_password_prepare();
 
 	return 0;
 }

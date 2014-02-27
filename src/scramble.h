@@ -53,7 +53,7 @@
  *          ^^ these steps are done in scramble_check()
  */
 
-enum { SCRAMBLE_SIZE = 20 };
+enum { SCRAMBLE_SIZE = 20, SCRAMBLE_BASE64_SIZE = 28 };
 
 /**
  * Prepare a scramble (cipher) to send over the wire
@@ -72,3 +72,13 @@ scramble_prepare(void *out, const void *salt, const void *password,
  */
 int
 scramble_check(const void *scramble, const void *salt, const void *hash2);
+
+
+/**
+ * Prepare a password hash as is stored in the _user space.
+ * @pre out must be at least SCRAMBLE_BASE64_SIZE
+ * @post out contains base64_encode(sha1(sha1(password)))
+ */
+void
+password_prepare(const char *password, int len, char *out, int out_len);
+

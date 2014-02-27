@@ -51,4 +51,5 @@ target_link_libraries(msgpack.test msgpuck)
 add_executable(scramble.test scramble.c
     ${CMAKE_SOURCE_DIR}/src/scramble.c
     ${CMAKE_SOURCE_DIR}/third_party/sha1.c
+    ${CMAKE_SOURCE_DIR}/third_party/base64.c
     ${CMAKE_SOURCE_DIR}/src/random.c)

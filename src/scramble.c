@@ -28,6 +28,7 @@
  */
 #include "scramble.h"
 #include "third_party/sha1.h"
+#include "third_party/base64.h"
 #include <string.h>
 
 static void
@@ -85,4 +86,22 @@ scramble_check(const void *scramble, const void *salt, const void *hash2)
 	SHA1Final(candidate_hash2, &ctx);
 
 	return memcmp(hash2, candidate_hash2, SCRAMBLE_SIZE);
+}
+
+
+void
+password_prepare(const char *password, int len, char *out, int out_len)
+{
+	unsigned char hash2[SCRAMBLE_SIZE];
+	SHA1_CTX ctx;
+
+	SHA1Init(&ctx);
+	SHA1Update(&ctx, (const unsigned char *) password, len);
+	SHA1Final(hash2, &ctx);
+
+	SHA1Init(&ctx);
+	SHA1Update(&ctx, hash2, SCRAMBLE_SIZE);
+	SHA1Final(hash2, &ctx);
+
+	base64_encode((char *) hash2, SCRAMBLE_SIZE, out, out_len);
 }
