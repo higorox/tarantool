@@ -1,10 +1,11 @@
 _space = box.space[box.schema.SPACE_ID]
 _index = box.space[box.schema.INDEX_ID]
+local SUID = 1
 --
 -- Test insertion into a system space - verify that
 -- mandatory fields are required.
 --
-_space:insert{_space.n, 5, 'test'}
+_space:insert{_space.n, SUID, 'test', 5 }
 --
 -- Bad space id
 --
@@ -12,18 +13,18 @@ _space:insert{'hello', 'world', 'test'}
 --
 -- Can't create a space which has wrong arity - arity must be NUM
 --
-_space:insert{_space.n, 'world', 'test'}
+_space:insert{_space.n, SUID, 'test', 'world'}
 --
 -- There is already a tuple for the system space
 --
-_space:insert{_space.n, 0, '_space'}
-_space:replace{_space.n, 0, '_space'}
-_space:insert{_index.n, 0, '_index'}
-_space:replace{_index.n, 0, '_index'}
+_space:insert{_space.n, SUID, '_space', 0}
+_space:replace{_space.n, SUID, '_space', 0}
+_space:insert{_index.n, SUID, '_index', 0}
+_space:replace{_index.n, SUID, '_index', 0}
 --
 -- Can't change properties of a space
 --
-_space:replace{_space.n, 0, '_space'}
+_space:replace{_space.n, SUID, '_space', 0}
 --
 -- Can't drop a system space
 --

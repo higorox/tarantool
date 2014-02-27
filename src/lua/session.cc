@@ -69,6 +69,20 @@ lbox_session_uid(struct lua_State *L)
 
 /** Session user id. */
 static int
+lbox_session_user(struct lua_State *L)
+{
+	struct user *user = NULL;
+	if (fiber()->session)
+		user = user_cache_find(fiber()->session->uid);
+	if (user)
+		lua_pushstring(L, user->name);
+	else
+		lua_pushnil(L);
+	return 1;
+}
+
+/** Session user id. */
+static int
 lbox_session_su(struct lua_State *L)
 {
 	if (lua_gettop(L) != 1)
@@ -193,6 +207,7 @@ tarantool_lua_session_init(struct lua_State *L)
 	static const struct luaL_reg sessionlib[] = {
 		{"id", lbox_session_id},
 		{"uid", lbox_session_uid},
+		{"user", lbox_session_user},
 		{"su", lbox_session_su},
 		{"fd", lbox_session_fd},
 		{"exists", lbox_session_exists},

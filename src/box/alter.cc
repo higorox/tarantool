@@ -1184,7 +1184,8 @@ on_replace_dd_user(struct trigger * /* trigger */, void *event)
 		/* Can't drop guest or super user */
 		if (uid == GUID || uid == SUID) {
 			tnt_raise(ClientError, ER_DROP_USER,
-				  old_user->name, "the user is a system user");
+				  old_user->name,
+				  "the user is a system user");
 		}
 		/*
 		 * Can only delete user if it has no spaces,

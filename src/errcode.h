@@ -94,6 +94,7 @@ enum { TNT_ERRMSG_MAX = 512 };
 	/* 42 */_(ER_ACCESS_DENIED,		2, "%s access denied for user '%s'") \
 	/* 43 */_(ER_CREATE_USER,		2, "Failed to create user '%s': %s") \
 	/* 44 */_(ER_DROP_USER,			2, "Failed to drop user '%s': %s") \
+	/* 45 */_(ER_UNKNOWN_ITERATOR_TYPE,	2, "Unknown iterator type '%s'") \
 
 
 /*

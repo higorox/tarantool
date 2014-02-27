@@ -4,7 +4,23 @@ local ffi = require('ffi')
 ffi.cdef[[
     struct space *space_by_id(uint32_t id);
     void space_run_triggers(struct space *space, bool yesno);
+    void password_prepare(const char *password, int len,
+		                  char *out, int out_len);
 ]]
+
+local function user_resolve(user)
+    local _user = box.space[box.schema.USER_ID]
+    local tuple
+    if type(user) == 'string' then
+        tuple = _user.index['name']:select{user}
+    else
+        tuple = _user.index[primary]:select{user}
+    end
+    if tuple == nil then
+        return nil
+    end
+    return tuple[0]
+end
 
 box.schema.space = {}
 box.schema.space.create = function(name, options)
@@ -38,7 +54,14 @@ box.schema.space.create = function(name, options)
     if options.arity == nil then
         options.arity = 0
     end
-    _space:insert{id, box.session.uid(), name, options.arity, temporary}
+    local uid = nil
+    if options.user then
+        uid = user_resolve(options.user)
+    end
+    if uid == nil then
+        uid = box.session.uid()
+    end
+    _space:insert{id, uid, name, options.arity, temporary}
     return box.space[id], "created"
 end
 box.schema.create_space = box.schema.space.create
@@ -215,7 +238,8 @@ function box.schema.space.bless(space)
 
         if type(opts.iterator) == 'string' then
             if box.index[ opts.iterator ] == nil then
-                error("Wrong iterator type: " .. opts.iterator)
+                box.raise(box.error.ER_UNKNOWN_ITERATOR_TYPE,
+                         "Unknown iterator type '"..opts.iterator.."'")
             end
             opts.iterator = box.index[ opts.iterator ]
         end
@@ -427,3 +451,4 @@ function box.schema.space.bless(space)
     end
 end
 
+box.schema.user = {}
