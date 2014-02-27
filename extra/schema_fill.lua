@@ -21,22 +21,25 @@ _index:insert{_schema.n, 0, 'primary', 'tree', 1, 1, 0, 'str'}
 
 -- space name is unique
 _index:insert{_space.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
-_index:insert{_space.n, 1, 'name', 'tree', 1, 1, 2, 'str'}
+_index:insert{_space.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
+_index:insert{_space.n, 2, 'name', 'tree', 1, 1, 2, 'str'}
 
 -- index name is unique within a space
 _index:insert{_index.n, 0, 'primary', 'tree', 1, 2, 0, 'num', 1, 'num'}
 _index:insert{_index.n, 1, 'name', 'tree', 1, 2, 0, 'num', 2, 'str'}
 -- user name and id are unique
 _index:insert{_user.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
-_index:insert{_user.n, 1, 'name', 'tree', 1, 1, 1, 'str'}
+_index:insert{_user.n, 1, 'name', 'tree', 1, 1, 2, 'str'}
 -- function name and id are unique
 _index:insert{_func.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
-_index:insert{_func.n, 1, 'name', 'tree', 1, 1, 2, 'str'}
+_index:insert{_func.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
+_index:insert{_func.n, 2, 'name', 'tree', 1, 1, 2, 'str'}
 --
 -- user id, object id, object type unique
 _index:insert{_priv.n, 0, 'primary', 'tree', 1, 3, 0, 'num', 1, 'num', 2, 'str'}
+_index:insert{_priv.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
 
 -- 
 -- Pre-create user and grants
-_user:insert{GUID, 'guest'}
-_user:insert{SUID, 'admin'}
+_user:insert{GUID, nil, 'guest'}
+_user:insert{SUID, nil, 'admin'}
