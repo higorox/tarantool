@@ -35,8 +35,6 @@
 #include "exception.h"
 #include <sys/socket.h>
 
-uint32_t sid_max;
-
 static struct mh_i32ptr_t *session_registry;
 
 struct mempool session_pool;
@@ -44,22 +42,28 @@ struct mempool session_pool;
 RLIST_HEAD(session_on_connect);
 RLIST_HEAD(session_on_disconnect);
 
+static inline  uint32_t
+sid_max()
+{
+	static uint32_t sid_max = 0;
+	/* Return the next sid rolling over the reserved value of 0. */
+	while (++sid_max == 0)
+		;
+	return sid_max;
+}
+
 struct session *
 session_create(int fd, uint64_t cookie)
 {
 	struct session *session = (struct session *)
 		mempool_alloc(&session_pool);
-	/* Return the next sid rolling over the reserved value of 0. */
-	while (++sid_max == 0)
-		;
-
-	session->id = sid_max;
+	session->id = sid_max();
 	session->fd =  fd;
 	session->cookie = cookie;
 	session_set_user(session, GUID, GUID);
-	struct mh_i32ptr_node_t node;
 	for (int i = 0; i < SESSION_SEED_SIZE/sizeof(*session->salt); i++)
 		session->salt[i] = rand();
+	struct mh_i32ptr_node_t node;
 	node.key = session->id;
 	node.val = session;
 
