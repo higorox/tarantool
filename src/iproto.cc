@@ -533,8 +533,8 @@ iproto_process_admin(struct iproto_request *ireq,
 			  subscribe_request_decode(body, end));
 		tnt_raise(IprotoConnectionShutdown);
 	default:
-		tnt_raise(IllegalParams, "unknown request type %u",
-			  ireq->header[IPROTO_CODE]);
+		tnt_raise(ClientError, ER_UNKNOWN_REQUEST_TYPE,
+			  (uint32_t) ireq->header[IPROTO_CODE]);
 	}
 	if (! ev_is_active(&con->output))
 		ev_feed_event(con->loop, &con->output, EV_WRITE);

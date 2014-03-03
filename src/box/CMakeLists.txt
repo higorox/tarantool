@@ -33,6 +33,7 @@ tarantool_module("box"
     txn.cc
     box.cc
     access.cc
+    authentication.cc
     ${lua_sources}
     lua/call.cc
     lua/tuple.cc

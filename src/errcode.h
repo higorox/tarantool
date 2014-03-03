@@ -95,6 +95,10 @@ enum { TNT_ERRMSG_MAX = 512 };
 	/* 43 */_(ER_CREATE_USER,		2, "Failed to create user '%s': %s") \
 	/* 44 */_(ER_DROP_USER,			2, "Failed to drop user '%s': %s") \
 	/* 45 */_(ER_UNKNOWN_ITERATOR_TYPE,	2, "Unknown iterator type '%s'") \
+	/* 46 */_(ER_NO_SUCH_USER,		2, "User '%s' is not found") \
+	/* 47 */_(ER_PASSWORD_MISMATCH,		2, "Incorrect password supplied for user '%s'") \
+	/* 48 */_(ER_UNKNOWN_REQUEST_TYPE,	2, "Unknown request type %u") \
+	/* 49 */_(ER_USER_EXISTS,		2, "User '%s' already exists") \
 
 
 /*

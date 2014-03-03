@@ -40,6 +40,7 @@
 #include <scoped_guard.h>
 #include <third_party/base64.h>
 #include "access.h"
+#include "authentication.h"
 
 static inline void
 access_check_space(uint8_t access, struct user *user, struct space *space)
@@ -207,13 +208,21 @@ execute_select(struct request *request, struct txn *txn, struct port *port)
 	}
 }
 
+void
+execute_auth(struct request *request, struct txn * /* txn */,
+	     struct port * /* port */)
+{
+	authenticate(request->key, request->key_end - request->key,
+		     request->tuple, request->tuple_end);
+}
+
 /** }}} */
 
 void
 request_check_type(uint32_t type)
 {
 	if (type < IPROTO_SELECT || type >= IPROTO_DML_REQUEST_MAX)
-		tnt_raise(IllegalParams, "unknown request type %u", type);
+		tnt_raise(LoggedError, ER_UNKNOWN_REQUEST_TYPE, type);
 }
 
 void
@@ -222,7 +231,8 @@ request_create(struct request *request, uint32_t type)
 	request_check_type(type);
 	static const request_execute_f execute_map[] = {
 		NULL, execute_select, execute_replace, execute_replace,
-		execute_update, execute_delete, box_lua_call
+		execute_update, execute_delete, box_lua_call,
+		execute_auth,
 	};
 	memset(request, 0, sizeof(*request));
 	request->type = type;
@@ -271,11 +281,14 @@ error:
 			request->tuple = value;
 			request->tuple_end = data;
 			break;
-		case IPROTO_KEY:
 		case IPROTO_FUNCTION_NAME:
-		default:
+		case IPROTO_USER_NAME:
+			mp_decode_strl(&value);
+			/* Fall through. */
+		case IPROTO_KEY:
 			request->key = value;
 			request->key_end = data;
+		default:
 			break;
 		}
 	}

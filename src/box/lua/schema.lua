@@ -488,7 +488,7 @@ box.schema.user.create = function(name, opts)
     local user = user_resolve(name)
     if user then
         box.raise(box.error.ER_USER_EXISTS,
-                  "User '"..user.."' already exists")
+                  "User '"..name.."' already exists")
     end
     if opts == nil then
         opts = {}

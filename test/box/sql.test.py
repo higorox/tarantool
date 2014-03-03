@@ -14,6 +14,8 @@ sql.set_schema({
 
 admin("space = box.schema.create_space('tweedledum', { id = 0 })")
 admin("space:create_index('primary', { type = 'hash' })")
+admin("box.schema.user.create('test', { password = 'test' })")
+sql.authenticate('test', 'test')
 sql("ping")
 # xxx: bug -- currently selects no rows
 sql("select * from t0")
