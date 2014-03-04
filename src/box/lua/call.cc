@@ -447,6 +447,11 @@ void
 box_lua_call(struct request *request, struct txn *txn,
 	     struct port *port)
 {
+	if (unlikely(request->key == NULL))
+		tnt_raise(ClientError, ER_MISSING_REQUEST_FIELD, "key");
+	if (unlikely(request->tuple == NULL))
+		tnt_raise(ClientError, ER_MISSING_REQUEST_FIELD, "function name");
+
 	(void) txn;
 	lua_State *L = lua_newthread(tarantool_L);
 	LuarefGuard coro_ref(tarantool_L);

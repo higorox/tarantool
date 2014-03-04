@@ -13,3 +13,35 @@ ping
 ---
 - ok
 ...
+
+#  Test gh-206 "Segfault if sending IPROTO package without `KEY` field"
+
+IPROTO_SELECT
+query {'IPROTO_CODE': 1} {'IPROTO_SPACE_ID': 280}
+  =>  {'IPROTO_SYNC': 0, 'IPROTO_CODE': 0} {'IPROTO_DATA': ()}
+
+
+IPROTO_DELETE
+query {'IPROTO_CODE': 5} {'IPROTO_SPACE_ID': 280}
+  =>  {'IPROTO_SYNC': 0, 'IPROTO_CODE': 10754} {'IPROTO_ERROR': "Missing mandatory field 'key' in request"}
+
+
+IPROTO_UPDATE
+query {'IPROTO_CODE': 4} {'IPROTO_SPACE_ID': 280}
+  =>  {'IPROTO_SYNC': 0, 'IPROTO_CODE': 10754} {'IPROTO_ERROR': "Missing mandatory field 'key' in request"}
+query {'IPROTO_CODE': 4} {'IPROTO_SPACE_ID': 280, 'IPROTO_KEY': (1,)}
+  =>  {'IPROTO_SYNC': 0, 'IPROTO_CODE': 10754} {'IPROTO_ERROR': "Missing mandatory field 'tuple' in request"}
+
+
+IPROTO_REPLACE
+query {'IPROTO_CODE': 3} {'IPROTO_SPACE_ID': 280}
+  =>  {'IPROTO_SYNC': 0, 'IPROTO_CODE': 10754} {'IPROTO_ERROR': "Missing mandatory field 'tuple' in request"}
+
+
+IPROTO_CALL
+query {'IPROTO_CODE': 6} {}
+  =>  {'IPROTO_SYNC': 0, 'IPROTO_CODE': 10754} {'IPROTO_ERROR': "Missing mandatory field 'key' in request"}
+query {'IPROTO_CODE': 6} {'IPROTO_KEY': ('procname',)}
+  =>  {'IPROTO_SYNC': 0, 'IPROTO_CODE': 10754} {'IPROTO_ERROR': "Missing mandatory field 'function name' in request"}
+
+

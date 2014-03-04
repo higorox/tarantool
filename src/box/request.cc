@@ -82,6 +82,9 @@ static void
 execute_replace(struct request *request, struct txn *txn, struct port *port)
 {
 	(void) port;
+	if (unlikely(request->tuple == NULL))
+		tnt_raise(ClientError, ER_MISSING_REQUEST_FIELD, "tuple");
+
 	txn_add_redo(txn, request);
 
 	struct space *space = space_find(request->space_id);
@@ -98,6 +101,11 @@ execute_update(struct request *request, struct txn *txn,
 	       struct port *port)
 {
 	(void) port;
+	if (unlikely(request->key == NULL))
+		tnt_raise(ClientError, ER_MISSING_REQUEST_FIELD, "key");
+	if (unlikely(request->tuple == NULL))
+		tnt_raise(ClientError, ER_MISSING_REQUEST_FIELD, "tuple");
+
 	txn_add_redo(txn, request);
 	/* Parse UPDATE request. */
 	/** Search key  and key part count. */
@@ -143,7 +151,7 @@ execute_select(struct request *request, struct txn *txn, struct port *port)
 	enum iterator_type type = (enum iterator_type) request->iterator;
 
 	const char *key = request->key;
-	uint32_t part_count = mp_decode_array(&key);
+	uint32_t part_count = (key != NULL) ? mp_decode_array(&key) : 0;
 
 	struct iterator *it = index->position();
 	key_validate(index->key_def, type, key, part_count);
@@ -165,6 +173,8 @@ static void
 execute_delete(struct request *request, struct txn *txn, struct port *port)
 {
 	(void) port;
+	if (unlikely(request->key == NULL))
+		tnt_raise(ClientError, ER_MISSING_REQUEST_FIELD, "key");
 	txn_add_redo(txn, request);
 	struct space *space = space_find(request->space_id);
 
