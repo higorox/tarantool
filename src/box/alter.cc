@@ -1128,12 +1128,10 @@ user_create_from_tuple(struct user *user, struct tuple *tuple)
 		return;
 	const char *hash2_base64 = tuple_field_cstr(tuple, HASH2);
 	len = strlen(hash2_base64);
-#if 0
-	if (len != 0 && len != SCRAMBLE_LEN_BASE64) {
+	if (len != 0 && len != SCRAMBLE_BASE64_SIZE) {
 		tnt_raise(ClientError, ER_CREATE_USER,
 			  user->name, "invalid user password");
 	}
-#endif
 	base64_decode(hash2_base64, len, user->hash2, sizeof(user->hash2));
 }
 

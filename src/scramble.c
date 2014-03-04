@@ -30,6 +30,7 @@
 #include "third_party/sha1.h"
 #include "third_party/base64.h"
 #include <string.h>
+#include <stdio.h>
 
 static void
 xor(unsigned char *to, unsigned const char *left,
@@ -44,7 +45,6 @@ void
 scramble_prepare(void *out, const void *salt, const void *password,
 		 int password_len)
 {
-
 	unsigned char hash1[SCRAMBLE_SIZE];
 	unsigned char hash2[SCRAMBLE_SIZE];
 	SHA1_CTX ctx;
@@ -87,7 +87,6 @@ scramble_check(const void *scramble, const void *salt, const void *hash2)
 
 	return memcmp(hash2, candidate_hash2, SCRAMBLE_SIZE);
 }
-
 
 void
 password_prepare(const char *password, int len, char *out, int out_len)

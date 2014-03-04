@@ -14,7 +14,7 @@ local function user_resolve(user)
     if type(user) == 'string' then
         tuple = _user.index['name']:select{user}
     else
-        tuple = _user.index[primary]:select{user}
+        tuple = _user.index['primary']:select{user}
     end
     if tuple == nil then
         return nil
@@ -504,7 +504,7 @@ end
 
 box.schema.user.drop = function(name)
     local _user = box.space[box.schema.USER_ID]
-    local uid = user_resolve(user)
+    local uid = user_resolve(name)
     if uid == nil then
         box.raise(box.error.ER_NO_SUCH_USER, "User "..name.."not found")
     end

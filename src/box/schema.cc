@@ -199,6 +199,24 @@ sc_space_new(struct space_def *space_def,
 	return space;
 }
 
+uint32_t
+schema_find_id(uint32_t system_space_id, const char *name, uint32_t len)
+{
+	struct space *space = space_find(system_space_id);
+	/** Index by name is #1. */
+	Index *index = index_find(space, 1);
+	struct iterator *it = index->position();
+	char key[5 /* str len */ + BOX_NAME_MAX];
+	mp_encode_str(key, name, len);
+	index->initIterator(it, ITER_EQ, key, 1);
+	struct tuple *tuple;
+	while ((tuple = it->next(it))) {
+		/* name is always field #2 */
+		return tuple_field_u32(tuple, 0);
+	}
+	return SC_ID_NIL;
+}
+
 /**
  * Initialize a prototype for the two mandatory data
  * dictionary spaces and create a cache entry for them.

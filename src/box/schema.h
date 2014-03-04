@@ -49,6 +49,8 @@ enum schema_id {
 	SC_SYSTEM_ID_MAX = 511
 };
 
+enum { SC_ID_NIL = 4294967295 };
+
 extern int sc_version;
 
 struct space;
@@ -122,5 +124,11 @@ func_cache_find(const char *name, uint32_t name_len);
 
 struct func *
 func_cache_replace(struct func *);
+
+/*
+ * Find object id by object name.
+ */
+uint32_t
+schema_find_id(uint32_t system_space_id,  const char *name, uint32_t len);
 
 #endif /* INCLUDES_TARANTOOL_BOX_SCHEMA_H */

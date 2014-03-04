@@ -28,6 +28,7 @@
  */
 #include "access.h"
 #include "assoc.h"
+#include "schema.h"
 
 struct user users[BOX_USER_MAX];
 /** Bitmap of used/unused tokens */
@@ -123,9 +124,8 @@ user_cache_find(uint32_t uid)
 struct user *
 user_cache_find_by_name(const char *name, uint32_t len)
 {
-	(void) name;
-	(void) len;
-	return NULL;
+	uint32_t uid = schema_find_id(SC_USER_ID, name, len);
+	return user_cache_find(uid);
 }
 
 void

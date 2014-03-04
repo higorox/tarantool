@@ -41,12 +41,12 @@ authenticate(const char *user_name, uint32_t len,
 	}
 	struct session *session = fiber()->session;
 	uint32_t part_count = mp_decode_array(&tuple);
-	if (part_count != 2) {
-		/* Authentication mechanism, data. */
+	if (part_count < 2) {
+		/* Expected at least: authentication mechanism and data. */
 		tnt_raise(ClientError, ER_INVALID_MSGPACK,
 			   "authentication request body");
 	}
-	mp_next(&tuple);
+	mp_next(&tuple); /* Skip authentication mechanism. */
 	uint32_t scramble_len;
 	const char *scramble = mp_decode_str(&tuple, &scramble_len);
 	if (scramble_len != SCRAMBLE_SIZE) {
