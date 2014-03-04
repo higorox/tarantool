@@ -75,11 +75,11 @@ user_map_put_slot(uint8_t auth_token)
 const char *
 priv_name(uint8_t access)
 {
-	switch (access) {
-	case PRIV_R: return "Read";
-	case PRIV_W: return "Write";
-	default: return "Execute";
-	}
+	if (access & PRIV_R)
+		return "Read";
+	if (access & PRIV_W)
+		return "Write";
+	return "Execute";
 }
 
 void

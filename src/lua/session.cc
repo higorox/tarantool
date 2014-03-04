@@ -95,11 +95,16 @@ lbox_session_su(struct lua_State *L)
 		size_t len;
 		const char *name = lua_tolstring(L, 1, &len);
 		user = user_cache_find_by_name(name, len);
+		if (user == NULL)
+			tnt_raise(ClientError, ER_NO_SUCH_USER, name);
 	} else {
-		user = user_cache_find(lua_tointeger(L, 1));
+		uint32_t uid = lua_tointeger(L, 1);;
+		user = user_cache_find(uid);
+		if (user == NULL) {
+			tnt_raise(ClientError, ER_NO_SUCH_USER,
+				  int2str(uid));
+		}
 	}
-	if (user == NULL)
-		luaL_error(L, "session.su(): user not found");
 	session_set_user(session, user->auth_token, user->uid);
 	return 0;
 }

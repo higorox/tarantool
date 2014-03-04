@@ -52,7 +52,13 @@
 #define INDEX_PART_COUNT	5
 
 /** _user columns */
-#define HASH2                   3
+#define HASH2			3
+
+/** _priv columns */
+#define PRIV_GRANTEE_ID		1
+#define PRIV_OBJECT_ID		2
+#define PRIV_OBJECT_TYPE	3
+#define PRIV_ACCESS		4
 
 /* {{{ Auxiliary functions and methods. */
 
@@ -1041,7 +1047,7 @@ on_replace_dd_index(struct trigger * /* trigger */, void *event)
 	uint32_t id = tuple_field_u32(old_tuple ? old_tuple : new_tuple, ID);
 	uint32_t iid = tuple_field_u32(old_tuple ? old_tuple : new_tuple,
 				       INDEX_ID);
-	struct space *old_space = space_find(id);
+	struct space *old_space = space_cache_find(id);
 	access_check_ddl(old_space->def.uid);
 	Index *old_index = space_index(old_space, iid);
 	struct alter_space *alter = alter_space_new();
@@ -1207,6 +1213,34 @@ on_replace_dd_user(struct trigger * /* trigger */, void *event)
 	}
 }
 
+/** Create a function definition from tuple. */
+static void
+func_def_create_from_tuple(struct func_def *func, struct tuple *tuple)
+{
+	func->id = tuple_field_u32(tuple, ID);
+	func->uid = tuple_field_u32(tuple, UID);
+	const char *name = tuple_field_cstr(tuple, NAME);
+	uint32_t len = strlen(name);
+	if (len >= sizeof(func->name)) {
+		tnt_raise(ClientError, ER_CREATE_FUNC,
+			  name, "function name is too long");
+	}
+	snprintf(func->name, sizeof(func->name), "%s", name);
+}
+
+/** Remove a function from function cache */
+static void
+func_cache_remove_func(struct trigger * /* trigger */, void *event)
+{
+	struct txn *txn = (struct txn *) event;
+	uint32_t fid = tuple_field_u32(txn->old_tuple ?
+				       txn->old_tuple : txn->new_tuple, ID);
+	func_cache_delete(fid);
+}
+
+static struct trigger drop_func_trigger =
+	{ rlist_nil, func_cache_remove_func, NULL, NULL };
+
 /**
  * A trigger invoked on replace in a space containing
  * functions on which there were defined any grants.
@@ -1214,7 +1248,7 @@ on_replace_dd_user(struct trigger * /* trigger */, void *event)
 static void
 on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 {
-#if 0
+	struct func_def func;
 	struct txn *txn = (struct txn *) event;
 	struct tuple *old_tuple = txn->old_tuple;
 	struct tuple *new_tuple = txn->new_tuple;
@@ -1223,16 +1257,14 @@ on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 				       old_tuple : new_tuple, ID);
 	struct func_def *old_func = func_cache_find(fid);
 	if (new_tuple != NULL && old_func == NULL) { /* INSERT */
-		struct func_def func;
 		func_def_create_from_tuple(&func, new_tuple);
-		(void) func_cache_replace(&func);
+		func_cache_replace(&func);
 		trigger_set(&txn->on_rollback, &drop_func_trigger);
 	} else if (new_tuple == NULL) { /* DELETE */
-		struct func_def func;
 		func_def_create_from_tuple(&func, old_tuple);
 		/*
-		 * Can only delete func you're the one who created
-		 * it or a superuser.
+		 * Can only delete func if you're the one
+		 * who created it or a superuser.
 		 */
 		access_check_ddl(func.uid);
 		/* @todo can only delete func if it has no grants */
@@ -1243,46 +1275,164 @@ on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 #endif
 }
 
+static void
+priv_def_create_from_tuple(struct priv_def *priv, struct tuple *tuple)
+{
+	priv->grantor_id = tuple_field_u32(tuple, ID);
+	priv->grantee_id = tuple_field_u32(tuple, PRIV_GRANTEE_ID);
+	const char *object_type = tuple_field_cstr(tuple, PRIV_OBJECT_TYPE);
+	priv->object_type = schema_object_type(object_type);
+	if (priv->object_type == SC_UNKNOWN) {
+		tnt_raise(ClientError, ER_UNKNOWN_SCHEMA_OBJECT,
+			  object_type);
+	}
+	priv->object_id = tuple_field_u32(tuple, PRIV_OBJECT_ID);
+	priv->access = tuple_field_u32(tuple, PRIV_ACCESS);
+}
+
+/*
+ * This function checks that:
+ * - a privilege is granted from an existing user to an existing
+ *   user on an existing object
+ * - the grantor has the right to grant (the owner of the object)
+ *
+ * @XXX Potentially there is a race in case of rollback, since an
+ * object can be potentially changed after WAL write.
+ * In future we must protect grant/revoke with a logical lock.
+ */
+static void
+priv_def_check(struct priv_def *priv)
+{
+	struct user *grantor = user_cache_find(priv->grantor_id);
+	struct user *grantee = user_cache_find(priv->grantee_id);
+	if (grantor == NULL) {
+		tnt_raise(ClientError, ER_NO_SUCH_USER,
+			  int2str(priv->grantor_id));
+	}
+	if (grantee == NULL) {
+		tnt_raise(ClientError, ER_NO_SUCH_USER,
+			  int2str(priv->grantee_id));
+	}
+	access_check_ddl(grantor->uid);
+	switch (priv->object_type) {
+	case SC_UNIVERSE:
+		if (grantor->uid != SUID) {
+			tnt_raise(ClientError, ER_ACCESS_DENIED,
+				  priv_name(priv->access), grantor->name);
+		}
+		break;
+	case SC_SPACE:
+	{
+		struct space *space = space_cache_find(priv->object_id);
+		if (space->def.uid != grantor->uid) {
+			tnt_raise(ClientError, ER_ACCESS_DENIED,
+				  priv_name(priv->access), grantor->name);
+		}
+		break;
+	}
+	case SC_FUNCTION:
+	{
+		struct func_def *func = func_cache_find(priv->object_id);
+		if (func->uid != grantor->uid) {
+			tnt_raise(ClientError, ER_ACCESS_DENIED,
+				  priv_name(priv->access), grantor->name);
+		}
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+/**
+ * Update a metadata cache object with the new access
+ * data.
+ */
+static void
+grant_or_revoke(struct priv_def *priv)
+{
+	struct user *grantee = user_cache_find(priv->grantee_id);
+	if (grantee == NULL)
+		return;
+	switch (priv->object_type) {
+	case SC_UNIVERSE:
+		grantee->universal_access = priv->access;
+		break;
+	case SC_SPACE:
+	{
+		struct space *space = space_by_id(priv->object_id);
+		if (space)
+			space->access[grantee->auth_token] = priv->access;
+		break;
+	}
+	case SC_FUNCTION:
+	{
+		struct func_def *func = func_by_id(priv->object_id);
+		if (func)
+			func->access[grantee->auth_token] = priv->access;
+		break;
+	}
+	default:
+		break;
+	}
+}
+
+/** A trigger called on rollback of grant, or on commit of revoke. */
+static void
+revoke_priv(struct trigger * /* trigger */, void *event)
+{
+	struct txn *txn = (struct txn *) event;
+	struct tuple *tuple = (txn->new_tuple ?
+			       txn->new_tuple : txn->old_tuple);
+	struct priv_def priv;
+	priv_def_create_from_tuple(&priv, tuple);
+	priv.access = 0;
+	grant_or_revoke(&priv);
+}
+
+static struct trigger revoke_priv_trigger =
+	{ rlist_nil, revoke_priv, NULL, NULL };
+
+/** A trigger called on rollback of grant, or on commit of revoke. */
+static void
+modify_priv(struct trigger * /* trigger */, void *event)
+{
+	struct txn *txn = (struct txn *) event;
+	struct priv_def priv;
+	priv_def_create_from_tuple(&priv, txn->new_tuple);
+	grant_or_revoke(&priv);
+}
+
+static struct trigger modify_priv_trigger =
+{ rlist_nil, modify_priv, NULL, NULL };
+
 /**
  * A trigger invoked on replace in the space containing
  * all granted privileges.
  */
 static void
-on_replace_dd_priv(struct trigger * /* trigger */, void * /* event */)
+on_replace_dd_priv(struct trigger * /* trigger */, void *event)
 {
-#if 0
 	struct priv_def priv;
 	struct txn *txn = (struct txn *) event;
 	struct tuple *old_tuple = txn->old_tuple;
 	struct tuple *new_tuple = txn->new_tuple;
 
-	if (old_tuple && new_tuple) {
-		tnt_raise(ClientError, ER_GRANT,
-			  "can't modify an existing privilege");
-	}
-
-	if (new_tuple) {                        /* grant */
-		/* Can only grant to an existing object */
-		/* Can only grant if you have the right to grant:
-		 *	- you're the owner of the object.
-		 *	- (in the future) you've got the grant
-		 *	  option
-		 */
-	} else {                                /* revoke */
-		/*
-		 * @todo: can only revoke privilege if you're the
-		 *  grantor or the owner of the object.
-		 */
+	if (new_tuple != NULL && old_tuple == NULL) {	/* grant */
+		priv_def_create_from_tuple(&priv, new_tuple);
+		priv_def_check(&priv);
+		grant_or_revoke(&priv);
+		trigger_set(&txn->on_rollback, &revoke_priv_trigger);
+	} else if (new_tuple == NULL) {                /* revoke */
 		assert(old_tuple);
-		struct privilege priv;
-		priv_create_from_tuple(&priv, old_tuple);
-		/* @todo can only delete func if it has no grants */
-		trigger_set(&txn->on_commit, &drop_func_trigger);
+		priv_def_create_from_tuple(&priv, old_tuple);
+		access_check_ddl(priv.grantor_id);
+		trigger_set(&txn->on_commit, &revoke_priv_trigger);
+	} else {                                       /* modify */
+		priv_def_create_from_tuple(&priv, new_tuple);
+		priv_def_check(&priv);
+		trigger_set(&txn->on_commit, &modify_priv_trigger);
 	}
-
-	uint32_t object_id = tuple_field_u32(?
-					     old_tuple : new_tuple, ID);
-#endif
 }
 
 /* }}} access control */

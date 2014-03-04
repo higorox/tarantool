@@ -52,6 +52,20 @@ enum {
 };
 
 /*
+ * Different objects which can be subject to access
+ * control.
+ *
+ * Use 0 for unknown to use the same index consistently
+ * even when there are more object types in the future.
+ */
+enum schema_object_type {
+	SC_UNKNOWN = 0, SC_UNIVERSE = 1, SC_SPACE = 2, SC_FUNCTION = 3
+};
+
+enum schema_object_type
+schema_object_type(const char *name);
+
+/*
  * Possible field data types. Can't use STRS/ENUM macros for them,
  * since there is a mismatch between enum name (STRING) and type
  * name literal ("STR"). STR is already used as Objective C type.
@@ -234,11 +248,40 @@ key_mp_type_validate(enum field_type key_type, enum mp_type mp_type,
 			  field_type_strs[key_type]);
 }
 
+/**
+ * Definition of a function. Function body is not stored
+ * or replicated (yet).
+ */
+
 struct func_def {
-	uint32_t id;
+	/** Function id. */
+	uint32_t fid;
+	/** Owner of the function. */
 	uint32_t uid;
+	/** Function name. */
 	char name[BOX_NAME_MAX + 1];
+	/**
+	 * Strictly speaking, this doesn't belong
+	 * to func def but belongs to func cache entry.
+	 * Kept here for simplicity.
+	 */
 	uint8_t access[BOX_USER_MAX];
+};
+
+/**
+ * Definition of a privilege
+ */
+struct priv_def {
+	/** Who grants the privilege. */
+	uint32_t grantor_id;
+	/** Whom the privilege is granted. */
+	uint32_t grantee_id;
+	/* Object id - is only defined for object type */
+	uint32_t object_id;
+	/* Object type - function, space, universe */
+	enum schema_object_type object_type;
+	/** What is being or has been granted. */
+	uint8_t access;
 };
 
 #endif /* TARANTOOL_BOX_KEY_DEF_H_INCLUDED */

@@ -102,7 +102,7 @@ execute_replace(struct request *request, struct txn *txn, struct port *port)
 	 */
 	uint8_t access = PRIV_W & ~user->universal_access;
 
-	struct space *space = space_find(request->space_id);
+	struct space *space = space_cache_find(request->space_id);
 
 	access_check_space(access, user, space);
 	struct tuple *new_tuple = tuple_new(space->format, request->tuple,
@@ -125,7 +125,7 @@ execute_update(struct request *request, struct txn *txn,
 	/* Parse UPDATE request. */
 	/** Search key  and key part count. */
 
-	struct space *space = space_find(request->space_id);
+	struct space *space = space_cache_find(request->space_id);
 	access_check_space(access, user, space);
 	Index *pk = index_find(space, 0);
 	/* Try to find the tuple by primary key. */
@@ -156,7 +156,7 @@ execute_delete(struct request *request, struct txn *txn, struct port *port)
 	struct user *user = user();
 	uint8_t access = PRIV_W & ~user->universal_access;
 
-	struct space *space = space_find(request->space_id);
+	struct space *space = space_cache_find(request->space_id);
 	access_check_space(access, user, space);
 
 	/* Try to find tuple by primary key */
@@ -179,7 +179,7 @@ execute_select(struct request *request, struct txn *txn, struct port *port)
 	(void) txn;
 	struct user *user = user();
 	uint8_t access = PRIV_R & ~user->universal_access;
-	struct space *space = space_find(request->space_id);
+	struct space *space = space_cache_find(request->space_id);
 	access_check_space(access, user, space);
 	Index *index = index_find(space, request->index_id);
 
@@ -212,8 +212,9 @@ void
 execute_auth(struct request *request, struct txn * /* txn */,
 	     struct port * /* port */)
 {
-	authenticate(request->key, request->key_end - request->key,
-		     request->tuple, request->tuple_end);
+	const char *user = request->key;
+	uint32_t len = mp_decode_strl(&user);
+	authenticate(user, len, request->tuple, request->tuple_end);
 }
 
 /** }}} */
@@ -281,11 +282,9 @@ error:
 			request->tuple = value;
 			request->tuple_end = data;
 			break;
+		case IPROTO_KEY:
 		case IPROTO_FUNCTION_NAME:
 		case IPROTO_USER_NAME:
-			mp_decode_strl(&value);
-			/* Fall through. */
-		case IPROTO_KEY:
 			request->key = value;
 			request->key_end = data;
 		default:

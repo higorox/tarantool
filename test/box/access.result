@@ -1,19 +1,25 @@
+-- user id for a Lua session is admin - 1
 box.session.uid()
 ---
 - 1
 ...
+-- extra arguments are ignored
 box.session.uid(nil)
 ---
 - 1
 ...
+-- admin
 box.session.user()
 ---
 - admin
 ...
+-- extra argumentes are ignored
 box.session.user(nil)
 ---
 - admin
 ...
+-- password() is a function which returns base64(sha1(sha1(password))
+-- a string to store in _user table
 box.schema.user.password('test')
 ---
 - lL3OvhkIPOKh+Vn9Avlkx69M/Ck=
@@ -22,6 +28,20 @@ box.schema.user.password('test1')
 ---
 - BsC/W2Ts4vZItfBIpxkDkGugjlw=
 ...
+-- admin can create any user
 box.schema.user.create('test', { password = 'test' })
 ---
+...
+-- su() let's you change the user of the session
+-- the user will be unabe to change back unless he/she
+-- is granted access to 'su'
+box.session.su('test')
+---
+...
+-- you can't create spaces unless you have a write access on 
+-- system space _space
+-- in future we may  introduce a separate privilege
+box.schema.create_space('test')
+---
+- error: Write access denied for user 'test'
 ...

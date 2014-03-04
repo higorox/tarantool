@@ -101,7 +101,8 @@ lua_checkindex(struct lua_State *L, int i)
 		(struct lbox_index *) luaL_checkudata(L, i, indexlib_name);
 	assert(index != NULL);
 	if (index->sc_version != sc_version) {
-		index->index = index_find(space_find(index->id), index->iid);
+		index->index = index_find(space_cache_find(index->id),
+					  index->iid);
 		index->sc_version = sc_version;
 	}
 	return index->index;
@@ -113,7 +114,7 @@ lbox_index_bind(struct lua_State *L)
 	uint32_t id = (uint32_t) luaL_checkint(L, 1); /* get space id */
 	uint32_t iid = (uint32_t) luaL_checkint(L, 2); /* get index id in */
 	/* locate the appropriate index */
-	struct space *space = space_find(id);
+	struct space *space = space_cache_find(id);
 	Index *i = index_find(space, iid);
 
 	/* create a userdata object */

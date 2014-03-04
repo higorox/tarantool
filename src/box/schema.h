@@ -39,7 +39,7 @@ enum schema_id {
 	SC_SPACE_ID = 280,
 	/** Space id of _index. */
 	SC_INDEX_ID = 288,
-	/** Space id of _user. */
+	/** Space id of _func. */
 	SC_FUNC_ID = 296,
 	/** Space id of _user. */
 	SC_USER_ID = 304,
@@ -73,7 +73,7 @@ extern "C" const char *
 space_name_by_id(uint32_t id);
 
 static inline struct space *
-space_find(uint32_t id)
+space_cache_find(uint32_t id)
 {
 	struct space *space = space_by_id(id);
 	if (space)
@@ -119,11 +119,23 @@ space_end_recover();
 
 struct space *schema_space(uint32_t id);
 
-struct func *
-func_cache_find(const char *name, uint32_t name_len);
+void
+func_cache_replace(struct func_def *func);
 
-struct func *
-func_cache_replace(struct func *);
+void
+func_cache_delete(uint32_t fid);
+
+struct func_def *
+func_by_id(uint32_t fid);
+
+static inline struct func_def *
+func_cache_find(uint32_t fid)
+{
+	struct func_def *func = func_by_id(fid);
+	if (func == NULL)
+		tnt_raise(ClientError, ER_NO_SUCH_FUNC, int2str(fid));
+	return func;
+}
 
 /*
  * Find object id by object name.

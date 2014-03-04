@@ -109,7 +109,7 @@ space_foreach(void (*func)(struct space *sp, void *udata), void *udata)
 		while ((tuple = it->next(it))) {
 			/* Get space id, primary key, field 0. */
 			uint32_t id = tuple_field_u32(tuple, 0);
-			space = space_find(id);
+			space = space_cache_find(id);
 			if (! space_is_system(space))
 				break;
 			func(space, udata);
@@ -202,7 +202,7 @@ sc_space_new(struct space_def *space_def,
 uint32_t
 schema_find_id(uint32_t system_space_id, const char *name, uint32_t len)
 {
-	struct space *space = space_find(system_space_id);
+	struct space *space = space_cache_find(system_space_id);
 	/** Index by name is #1. */
 	Index *index = index_find(space, 1);
 	struct iterator *it = index->position();
