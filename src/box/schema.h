@@ -119,6 +119,12 @@ space_end_recover();
 
 struct space *schema_space(uint32_t id);
 
+/*
+ * Find object id by object name.
+ */
+uint32_t
+schema_find_id(uint32_t system_space_id,  const char *name, uint32_t len);
+
 void
 func_cache_replace(struct func_def *func);
 
@@ -137,10 +143,11 @@ func_cache_find(uint32_t fid)
 	return func;
 }
 
-/*
- * Find object id by object name.
- */
-uint32_t
-schema_find_id(uint32_t system_space_id,  const char *name, uint32_t len);
+static inline struct func_def *
+func_by_name(const char *name, uint32_t name_len)
+{
+	uint32_t fid = schema_find_id(SC_FUNC_ID, name, name_len);
+	return func_by_id(fid);
+}
 
 #endif /* INCLUDES_TARANTOOL_BOX_SCHEMA_H */

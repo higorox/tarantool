@@ -104,6 +104,8 @@ enum { TNT_ERRMSG_MAX = 512 };
 	/* 52 */_(ER_NO_SUCH_FUNC,		2, "Function '%s' does not exist") \
 	/* 53 */_(ER_FUNC_EXISTS,		2, "Function '%s' already exists") \
 	/* 53 */_(ER_CREATE_FUNC,		2, "Failed to create function: %s") \
+	/* 54 */_(ER_SPACE_ACCESS_DENIED,	2, "%s access denied for user '%s' to space '%s'") \
+	/* 55 */_(ER_FUNC_ACCESS_DENIED,	2, "%s access denied for user '%s' to function '%s'") \
 
 
 /*
