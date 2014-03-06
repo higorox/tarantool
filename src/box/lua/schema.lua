@@ -648,7 +648,7 @@ box.schema.user.drop = function(name)
     local _user = box.space[box.schema.USER_ID]
     local uid = user_resolve(name)
     if uid == nil then
-        box.raise(box.error.ER_NO_SUCH_USER, "User "..name.."not found")
+        box.raise(box.error.ER_NO_SUCH_USER, "User '"..name.."' does not exist")
     end
     -- todo recursive delete of user data
     _user:delete{uid}
@@ -658,7 +658,7 @@ box.schema.user.grant = function(user_name, privilege, object_type, object_name,
     local uid = user_resolve(user_name)
     if uid == nil then
         box.raise(box.error.ER_NO_SUCH_USER,
-                  "User '"..user_name.."' does not exists")
+                  "User '"..user_name.."' does not exist")
     end
     privilege = privilege_resolve(privilege)
     local oid = object_resolve(object_type, object_name)
@@ -673,7 +673,7 @@ box.schema.user.revoke = function(user_name, privilege, object_type, object_name
     local uid = user_resolve(name)
     if uid == nil then
         box.raise(box.error.ER_NO_SUCH_USER,
-                  "User '"..name.."' does not exists")
+                  "User '"..name.."' does not exist")
     end
     privilege = privilege_resolve(privilege)
     local oid = object_resolve(object_type, object)

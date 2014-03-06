@@ -386,7 +386,7 @@ struct func_def *
 func_by_id(uint32_t fid)
 {
 	mh_int_t func = mh_i32ptr_find(funcs, fid, NULL);
-	if (func == mh_end(spaces))
+	if (func == mh_end(funcs))
 		return NULL;
 	return (struct func_def *) mh_i32ptr_node(funcs, func)->val;
 }
