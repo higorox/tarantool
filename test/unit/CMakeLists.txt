@@ -36,8 +36,8 @@ add_executable(slab_arena.test slab_arena.c)
 target_link_libraries(slab_arena.test small)
 add_executable(arena_mt.test arena_mt.c)
 target_link_libraries(arena_mt.test small pthread)
-add_executable(CensoredTree.test CensoredTreeTest.cpp ${CMAKE_SOURCE_DIR}/third_party/qsort_arg.c)
-target_link_libraries(CensoredTree.test small)
+add_executable(bpstree.test bpstree.cpp ${CMAKE_SOURCE_DIR}/third_party/qsort_arg.c)
+target_link_libraries(bpstree.test small)
 
 set(MSGPUCK_DIR ${PROJECT_SOURCE_DIR}/src/lib/msgpuck/)
 add_executable(msgpack.test

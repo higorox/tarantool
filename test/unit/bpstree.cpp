@@ -10,7 +10,7 @@ void *operator new(size_t, void *buf)
 
 #include "unit.h"
 #include "sptree.h"
-#include "CensoredTree.h"
+#include "bpstree.h"
 #include "qsort_arg.h"
 
 #ifndef MAX
@@ -48,7 +48,7 @@ simple_check()
 	const int rounds = 10000;
 	Tree_t tree;
 
-	// Insert 1..X, remove 1..X
+	printf("Insert 1..X, remove 1..X\n");
 	for (int i = 0; i < rounds; i++) {
 		long v = i;
 		if (tree.Find(v) != NULL)
@@ -67,7 +67,7 @@ simple_check()
 	if (tree.Count() != 0)
 		fail("Tree count mismatch (2)", "true");
 
-	// Insert 1..X, remove X..1
+	printf("Insert 1..X, remove X..1\n");
 	for (int i = 0; i < rounds; i++) {
 		long v = i;
 		if (tree.Find(v) != NULL)
@@ -86,7 +86,7 @@ simple_check()
 	if (tree.Count() != 0)
 		fail("Tree count mismatch (4)", "true");
 
-	// Insert X..1, remove 1..X
+	printf("Insert X..1, remove 1..X\n");
 	for (int i = 0; i < rounds; i++) {
 		long v = rounds - 1 - i;
 		if (tree.Find(v) != NULL)
@@ -105,7 +105,7 @@ simple_check()
 	if (tree.Count() != 0)
 		fail("Tree count mismatch (6)", "true");
 
-	// Insert X..1, remove X..1
+	printf("Insert X..1, remove X..1\n");
 	for (int i = 0; i < rounds; i++) {
 		long v = rounds - 1 - i;
 		if (tree.Find(v) != NULL)
