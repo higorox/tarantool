@@ -4,9 +4,38 @@ local ffi = require('ffi')
 ffi.cdef[[
     struct space *space_by_id(uint32_t id);
     void space_run_triggers(struct space *space, bool yesno);
+
+    struct iterator {
+        struct tuple *(*next)(struct iterator *);
+        void (*free)(struct iterator *);
+    };
+    struct iterator *
+    boxffi_index_iterator(uint32_t space_id, uint32_t index_id, int type,
+                  const char *key);
+
+    struct port;
+    struct port_ffi
+    {
+        struct port_vtab *vtab;
+        uint32_t size;
+        uint32_t capacity;
+        struct tuple **ret;
+    };
+
+    void
+    port_ffi_create(struct port_ffi *port);
+    void
+    port_ffi_destroy(struct port_ffi *port);
+
+    int
+    boxffi_select(struct port *port, uint32_t space_id, uint32_t index_id,
+              int iterator, uint32_t offset, uint32_t limit,
+              const char *key, const char *key_end);
     void password_prepare(const char *password, int len,
 		                  char *out, int out_len);
 ]]
+local builtin = ffi.C
+local msgpackffi = require('msgpackffi')
 
 local function user_resolve(user)
     local _user = box.space[box.schema.USER_ID]
@@ -68,7 +97,7 @@ box.schema.create_space = box.schema.space.create
 box.schema.space.drop = function(space_id)
     local _space = box.space[box.schema.SPACE_ID]
     local _index = box.space[box.schema.INDEX_ID]
-    local keys = { _index:select{space_id} }
+    local keys = _index:select(space_id)
     for i = #keys, 1, -1 do
         local v = keys[i]
         _index:delete{v[0], v[1]}
@@ -170,7 +199,7 @@ box.schema.index.alter = function(space_id, index_id, options)
         _index:update({space_id, index_id}, ops)
         return
     end
-    local tuple = _index:select{space_id, index_id}
+    local tuple = _index:get{space_id, index_id}
     if options.name == nil then
         options.name = tuple[2]
     end
@@ -197,6 +226,57 @@ local function keify(key)
     return {key}
 end
 
+local iterator_t = ffi.typeof('struct iterator')
+ffi.metatype(iterator_t, {
+    __tostring = function(iterator)
+        return "<iterator state>"
+    end;
+})
+
+local iterator_gen = function(param, state)
+    --[[
+        index:pairs() mostly confirms to the Lua for-in loop conventions and
+        tries to follow the best practices of Lua community.
+
+        - this generating function is stateless.
+
+        - *param* should contain **immutable** data needed to fully define
+          an iterator. *param* is opaque for users. Currently it contains keybuf
+          string just to prevent GC from collecting it. In future some other
+          variables like space_id, index_id, sc_version will be stored here.
+
+        - *state* should contain **immutable** transient state of an iterator.
+          *state* is opaque for users. Currently it contains `struct iterator`
+          cdata that is modified during iteration. This is a sad limitation of
+          underlying C API. Moreover, the separation of *param* and *state* is
+          not properly implemented here. These drawbacks can be fixed in
+          future without changing this API.
+
+        Please checkout http://www.lua.org/pil/7.3.html for the further
+        information.
+    --]]
+    if not ffi.istype(iterator_t, state) then
+        error('usage gen(param, state)')
+    end
+    -- next() modifies state in-place
+    local tuple = state.next(state)
+    if tuple ~= nil then
+        return state, box.tuple.bless(tuple) -- new state, value
+    else
+        return nil
+    end
+end
+
+local iterator_cdata_gc = function(iterator)
+    return iterator.free(iterator)
+end
+
+-- global struct port instance to use by select()/get()
+local port = ffi.new('struct port_ffi')
+builtin.port_ffi_create(port)
+ffi.gc(port, builtin.port_ffi_destroy)
+local port_t = ffi.typeof('struct port *')
+
 function box.schema.space.bless(space)
     local index_mt = {}
     -- __len and __index
@@ -209,7 +289,7 @@ function box.schema.space.bless(space)
         if index.type == 'HASH' then
             box.raise(box.error.ER_UNSUPPORTED, 'HASH does not support min()')
         end
-        local lst = index:eselect(keify(key), { iterator = 'GE', limit = 1 })
+        local lst = index:eselect(key, { iterator = 'GE', limit = 1 })
         if lst[1] ~= nil then
             return lst[1]
         else
@@ -220,7 +300,7 @@ function box.schema.space.bless(space)
         if index.type == 'HASH' then
             box.raise(box.error.ER_UNSUPPORTED, 'HASH does not support max()')
         end
-        local lst = index:eselect(keify(key), { iterator = 'LE', limit = 1 })
+        local lst = index:eselect(key, { iterator = 'LE', limit = 1 })
         if lst[1] ~= nil then
             return lst[1]
         else
@@ -229,28 +309,31 @@ function box.schema.space.bless(space)
     end
     index_mt.random = function(index, rnd) return index.idx:random(rnd) end
     -- iteration
-    index_mt.iterator = function(index, key, opts)
-        if opts == nil then
-            opts = {}
-        elseif type(opts) ~= 'table' then
-            error("usage: index:iterator(key[, { option = value, ... })")
-        end
-
-        if type(opts.iterator) == 'string' then
-            if box.index[ opts.iterator ] == nil then
-                box.raise(box.error.ER_UNKNOWN_ITERATOR_TYPE,
-                         "Unknown iterator type '"..opts.iterator.."'")
+    index_mt.pairs = function(index, key, opts)
+        local pkey, pkey_end = msgpackffi.encode_tuple(key)
+        -- Use ALL for {} and nil keys and EQ for other keys
+        local itype = pkey + 1 < pkey_end and box.index.EQ or box.index.ALL
+        if opts then
+            if type(opts.iterator) == "number" then
+                itype = opts.iterator
+            elseif box.index[opts.iterator] then
+                itype = box.index[opts.iterator]
+            elseif opts.iterator ~= nil then
+                error("Wrong iterator type: "..tostring(opts.iterator))
             end
-            opts.iterator = box.index[ opts.iterator ]
         end
 
-        return index.idx:iterator(key, opts)
+        local keybuf = ffi.string(pkey, pkey_end - pkey)
+        local cdata = builtin.boxffi_index_iterator(index.n, index.id,
+            itype, keybuf);
+        if cdata == nil then
+            box.raise()
+        end
+
+        return iterator_gen, keybuf, ffi.gc(cdata, iterator_cdata_gc)
     end
-    --
-    -- pairs
-    index_mt.pairs = function(index)
-        return index.idx.next, index.idx, nil
-    end
+    index_mt.__pairs = index_mt.pairs -- Lua 5.2 compatibility
+    index_mt.__ipairs = index_mt.pairs -- Lua 5.2 compatibility
     -- index subtree size
     index_mt.count = function(index, key, opts)
         local count = 0
@@ -262,13 +345,12 @@ function box.schema.space.bless(space)
             iterator = 'EQ'
         end
 
-        key = keify(key)
-
-        if #key == 0 then
+        if key == nil or type(key) == "table" and #key == 0 then
             return #index.idx
         end
 
-        for tuple in index:iterator(key, { iterator = iterator }) do
+        local state, tuple
+        for state, tuple in index:pairs(key, { iterator = iterator }) do
             count = count + 1
         end
         return count
@@ -318,7 +400,8 @@ function box.schema.space.bless(space)
             return result
         end
 
-        for tuple in index:iterator(keify(key), { iterator = iterator }) do
+        local state, tuple
+        for state, tuple in index:pairs(key, { iterator = iterator }) do
             if grep == nil or grep(tuple) then
                 if skip < offset then
                     skip = skip + 1
@@ -342,14 +425,64 @@ function box.schema.space.bless(space)
             end
         end
         if limit == nil then
-            return unpack(result)
+            return result[1]
         end
         return result
     end
 
-    --
-    index_mt.select = function(index, key)
-        return box._select(index.n, index.id, keify(key))
+    index_mt.get = function(index, key)
+        local key, key_end = msgpackffi.encode_tuple(key)
+        port.size = 0;
+        if builtin.boxffi_select(ffi.cast(port_t, port), index.n,
+           index.id, box.index.EQ, 0, 2, key, key_end) ~=0 then
+            return box.raise()
+        end
+        if port.size == 0 then
+            return
+        elseif port.size == 1 then
+            return box.tuple.bless(port.ret[0])
+        else
+            box.raise(box.error.ER_MORE_THAN_ONE_TUPLE,
+                "More than one tuple found by get()")
+        end
+    end
+
+    index_mt.select = function(index, key, opts)
+        local offset = 0
+        local limit = 4294967295
+        local iterator = box.index.EQ
+
+        local key, key_end = msgpackffi.encode_tuple(key)
+        if key_end == key + 1 then -- empty array
+            iterator = box.index.ALL
+        end
+
+        if opts ~= nil then
+            if opts.offset ~= nil then
+                offset = opts.offset
+            end
+            if type(opts.iterator) == "string" then
+                opts.iterator = box.index[opts.iterator]
+            end
+            if opts.iterator ~= nil then
+                iterator = opts.iterator
+            end
+            if opts.limit ~= nil then
+                limit = opts.limit
+            end
+        end
+
+        port.size = 0;
+        if builtin.boxffi_select(ffi.cast(port_t, port), index.n,
+            index.id, iterator, offset, limit, key, key_end) ~=0 then
+            return box.raise()
+        end
+
+        local ret = {}
+        for i=0,port.size - 1,1 do
+            table.insert(ret, box.tuple.bless(port.ret[i]))
+        end
+        return ret
     end
     index_mt.update = function(index, key, ops)
         return box._update(index.n, index.id, keify(key), ops);
@@ -375,10 +508,13 @@ function box.schema.space.bless(space)
         check_index(space, 0)
         return space.index[0]:eselect(key, opts)
     end
-
-    space_mt.select = function(space, key)
+    space_mt.get = function(space, key)
         check_index(space, 0)
-        return space.index[0]:select(key)
+        return space.index[0]:get(key)
+    end
+    space_mt.select = function(space, key, opts)
+        check_index(space, 0)
+        return space.index[0]:select(key, opts)
     end
     space_mt.insert = function(space, tuple)
         return box._insert(space.n, tuple);
@@ -386,6 +522,7 @@ function box.schema.space.bless(space)
     space_mt.replace = function(space, tuple)
         return box._replace(space.n, tuple);
     end
+    space_mt.put = space_mt.replace; -- put is an alias for replace
     space_mt.update = function(space, key, ops)
         check_index(space, 0)
         return space.index[0]:update(key, ops)
@@ -406,12 +543,18 @@ function box.schema.space.bless(space)
         table.insert(tuple, 1, max + 1)
         return space:insert(tuple)
     end
-
+    space_mt.pairs = function(space, key)
+        check_index(space, 0)
+        return space.index[0]:pairs(key)
+    end
+    space_mt.__pairs = space_mt.pairs -- Lua 5.2 compatibility
+    space_mt.__ipairs = space_mt.pairs -- Lua 5.2 compatibility
     space_mt.truncate = function(space)
         check_index(space, 0)
         local pk = space.index[0]
         while #pk.idx > 0 do
-            for t in pk:iterator() do
+            local state, t
+            for state, t in pk:pairs() do
                 local key = {}
                 -- ipairs does not work because pk.key_field is zero-indexed
                 for _k2, key_field in pairs(pk.key_field) do
@@ -421,7 +564,6 @@ function box.schema.space.bless(space)
             end
         end
     end
-    space_mt.pairs = function(space) return space.index[0]:pairs() end
     space_mt.drop = function(space)
         return box.schema.space.drop(space.n)
     end
@@ -548,3 +690,4 @@ box.schema.user.revoke = function(user_name, privilege, object_type, object_name
         _priv:delete{uid, object_type, oid}
     end
 end
+

@@ -60,7 +60,11 @@ session_create(int fd, uint64_t cookie)
 	session->id = sid_max();
 	session->fd =  fd;
 	session->cookie = cookie;
-	session_set_user(session, GUID, GUID);
+	/*
+	 * At first the session user is a superuser,
+	 * to make sure triggers run correctly.
+	 */
+	session_set_user(session, SUID, SUID);
 	for (int i = 0; i < SESSION_SEED_SIZE/sizeof(*session->salt); i++)
 		session->salt[i] = rand();
 	struct mh_i32ptr_node_t node;
@@ -87,6 +91,8 @@ session_create(int fd, uint64_t cookie)
 		mempool_free(&session_pool, session);
 		throw;
 	}
+	/* Set session user to guest, until it is authenticated. */
+	session_set_user(session, GUID, GUID);
 	return session;
 }
 
@@ -96,7 +102,8 @@ session_destroy(struct session *session)
 	if (session == NULL) /* no-op for a dead session. */
 		return;
 	fiber_set_session(fiber(), session);
-
+	/* For triggers. */
+	session_set_user(session, SUID, SUID);
 	try {
 		trigger_run(&session_on_disconnect, NULL);
 	} catch (Exception *e) {
