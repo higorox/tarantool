@@ -106,6 +106,7 @@ enum { TNT_ERRMSG_MAX = 512 };
 	/* 53 */_(ER_CREATE_FUNC,		2, "Failed to create function: %s") \
 	/* 54 */_(ER_SPACE_ACCESS_DENIED,	2, "%s access denied for user '%s' to space '%s'") \
 	/* 55 */_(ER_FUNC_ACCESS_DENIED,	2, "%s access denied for user '%s' to function '%s'") \
+	/* 56 */_(ER_FUNCTION_MAX,		2, "A limit on the total number of functions reached: %u") \
 
 
 /*

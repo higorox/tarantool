@@ -354,6 +354,8 @@ func_cache_replace(struct func_def *func)
 		*old = *func;
 		return;
 	}
+	if (mh_size(funcs) >= BOX_FUNCTION_MAX)
+		tnt_raise(ClientError, ER_FUNCTION_MAX, BOX_FUNCTION_MAX);
 	void *ptr = malloc(sizeof(*func));
 	if (ptr == NULL) {
 error:
