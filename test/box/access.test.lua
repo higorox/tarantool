@@ -20,3 +20,8 @@ box.session.su('test')
 -- system space _space
 -- in future we may  introduce a separate privilege
 box.schema.create_space('test')
+-- su() goes through because called from admin
+-- console, and it has no access checks
+-- for functions
+box.session.su('admin')
+box.schema.user.grant('test', 'write', 'space', '_space')

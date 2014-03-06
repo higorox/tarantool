@@ -139,7 +139,7 @@ func_cache_find(uint32_t fid)
 {
 	struct func_def *func = func_by_id(fid);
 	if (func == NULL)
-		tnt_raise(ClientError, ER_NO_SUCH_FUNC, int2str(fid));
+		tnt_raise(ClientError, ER_NO_SUCH_FUNCTION, int2str(fid));
 	return func;
 }
 

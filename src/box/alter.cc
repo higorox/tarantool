@@ -56,8 +56,8 @@
 
 /** _priv columns */
 #define PRIV_GRANTEE_ID		1
-#define PRIV_OBJECT_ID		2
-#define PRIV_OBJECT_TYPE	3
+#define PRIV_OBJECT_TYPE	2
+#define PRIV_OBJECT_ID		3
 #define PRIV_ACCESS		4
 
 /* {{{ Auxiliary functions and methods. */
@@ -1223,7 +1223,7 @@ func_def_create_from_tuple(struct func_def *func, struct tuple *tuple)
 	const char *name = tuple_field_cstr(tuple, NAME);
 	uint32_t len = strlen(name);
 	if (len >= sizeof(func->name)) {
-		tnt_raise(ClientError, ER_CREATE_FUNC,
+		tnt_raise(ClientError, ER_CREATE_FUNCTION,
 			  name, "function name is too long");
 	}
 	snprintf(func->name, sizeof(func->name), "%s", name);

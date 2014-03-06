@@ -41,9 +41,9 @@ local function user_resolve(user)
     local _user = box.space[box.schema.USER_ID]
     local tuple
     if type(user) == 'string' then
-        tuple = _user.index['name']:select{user}
+        tuple = _user.index['name']:get{user}
     else
-        tuple = _user.index['primary']:select{user}
+        tuple = _user.index['primary']:get{user}
     end
     if tuple == nil then
         return nil
@@ -593,11 +593,10 @@ function box.schema.space.bless(space)
     end
 end
 
-box.schema.user = {}
-
 local function privilege_resolve(privilege)
     local numeric = 0
     if type(privilege) == 'string' then
+        privilege = string.lower(privilege)
         if string.find(privilege, 'read') then
             numeric = numeric + 1
         end
@@ -613,6 +612,45 @@ local function privilege_resolve(privilege)
     return numeric
 end
 
+local function object_resolve(object_type, object_name)
+    if object_type == 'universe' then
+        return 0
+    end
+    if object_type == 'space' then
+        local space = box.space[object_name]
+        if  space == nil then
+            box.raise(box.error.ER_NO_SUCH_SPACE,
+                      "Space '"..object_name.."' does not exist")
+        end
+        return space.n
+    end
+    if object_type == 'function' then
+        local _func = box.space[box.schema.FUNC_ID]
+        local func = _func.index['name']:get{object_name}
+        if func then
+            return func[0]
+        else
+            box.raise(box.error.ER_NO_SUCH_FUNCTION,
+                      "Function '"..object_name.."' does not exist")
+        end
+    end
+    box.raise(box.error.ER_UNKNOWN_SCHEMA_OBJECT,
+              "Unknown object type '"..object_type.."'")
+end
+
+box.schema.func = {}
+box.schema.func.create = function(name)
+    local _func = box.space[box.schema.FUNC_ID]
+    local func = _func.index['name']:get{name}
+    if func then
+            box.raise(box.error.ER_FUNCTION_EXISTS,
+                      "Function '"..name.."' already exists")
+    end
+    _func:auto_increment{box.session.uid(), name}
+end
+
+box.schema.user = {}
+
 box.schema.user.password = function(password)
     local BUF_SIZE = 128
     local buf = ffi.new("char[?]", BUF_SIZE)
@@ -627,8 +665,8 @@ box.schema.user.passwd = function(new_password)
 end
 
 box.schema.user.create = function(name, opts)
-    local user = user_resolve(name)
-    if user then
+    local uid = user_resolve(name)
+    if uid then
         box.raise(box.error.ER_USER_EXISTS,
                   "User '"..name.."' already exists")
     end
@@ -664,13 +702,15 @@ box.schema.user.grant = function(user_name, privilege, object_type, object_name,
     local oid = object_resolve(object_type, object_name)
     if grantor == nil then
         grantor = box.session.uid()
+    else
+        grantor = user_resolve(grantor)
     end
     local _priv = box.space[box.schema.PRIV_ID]
-    _priv:replace{uid, object_type, object, grantor, privilege}
+    _priv:replace{grantor, uid, object_type, oid, privilege}
 end
 
 box.schema.user.revoke = function(user_name, privilege, object_type, object_name)
-    local uid = user_resolve(name)
+    local uid = user_resolve(user_name)
     if uid == nil then
         box.raise(box.error.ER_NO_SUCH_USER,
                   "User '"..name.."' does not exist")

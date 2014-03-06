@@ -14,8 +14,11 @@ sql.set_schema({
 
 admin("function f() box.schema.create_space('test', { id = 0 }) end")
 admin("box.schema.user.create('test', { password = 'test' })")
+admin("box.schema.func.create('f')")
 admin("box.schema.user.grant('test', 'Write', 'space', '_space')")
+admin("box.schema.user.grant('test', 'Execute', 'function', 'f')")
 sql.authenticate('test', 'test')
+# call from sql to have the right owner
 sql("call f()")
 admin("box.space.test:create_index('primary', { type = 'hash' })")
 sql("ping")
