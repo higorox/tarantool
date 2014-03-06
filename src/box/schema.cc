@@ -336,5 +336,55 @@ schema_free(void)
 		space_delete(space);
 	}
 	mh_i32ptr_delete(spaces);
+	while (mh_size(funcs) > 0) {
+		mh_int_t i = mh_first(funcs);
+
+		struct func_def *func = (struct func_def *)
+				mh_i32ptr_node(funcs, i)->val;
+		func_cache_delete(func->fid);
+	}
 	mh_i32ptr_delete(funcs);
+}
+
+void
+func_cache_replace(struct func_def *func)
+{
+	struct func_def *old = func_by_id(func->fid);
+	if (old) {
+		*old = *func;
+		return;
+	}
+	void *ptr = malloc(sizeof(*func));
+	if (ptr == NULL) {
+error:
+		panic_syserror("Out of memory for the data "
+			       "dictionary cache.");
+	}
+	memcpy(ptr, func, sizeof(*func));
+	func = (struct func_def *) ptr;
+	const struct mh_i32ptr_node_t node = { func->fid, func };
+	mh_int_t k = mh_i32ptr_put(funcs, &node, NULL, NULL);
+	if (k == mh_end(funcs))
+		goto error;
+}
+
+void
+func_cache_delete(uint32_t fid)
+{
+	mh_int_t k = mh_i32ptr_find(funcs, fid, NULL);
+	if (k == mh_end(funcs))
+		return;
+	struct func_def *func = (struct func_def *)
+		mh_i32ptr_node(funcs, k)->val;
+	free(func);
+	mh_i32ptr_del(funcs, k, NULL);
+}
+
+struct func_def *
+func_by_id(uint32_t fid)
+{
+	mh_int_t func = mh_i32ptr_find(funcs, fid, NULL);
+	if (func == mh_end(spaces))
+		return NULL;
+	return (struct func_def *) mh_i32ptr_node(funcs, func)->val;
 }

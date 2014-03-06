@@ -100,9 +100,10 @@ enum { TNT_ERRMSG_MAX = 512 };
 	/* 48 */_(ER_UNKNOWN_REQUEST_TYPE,	2, "Unknown request type %u") \
 	/* 49 */_(ER_USER_EXISTS,		2, "User '%s' already exists") \
 	/* 50 */_(ER_UNKNOWN_SCHEMA_OBJECT,	2, "Unknown object type '%s'") \
-	/* 50 */_(ER_GRANT,			2, "Failed to grant or revoke privilege: %s") \
-	/* 50 */_(ER_NO_SUCH_FUNC,		2, "Function '%s' does not exist") \
-	/* 50 */_(ER_FUNC_EXISTS,		2, "Function '%s' already exists") \
+	/* 51 */_(ER_GRANT,			2, "Failed to grant or revoke privilege: %s") \
+	/* 52 */_(ER_NO_SUCH_FUNC,		2, "Function '%s' does not exist") \
+	/* 53 */_(ER_FUNC_EXISTS,		2, "Function '%s' already exists") \
+	/* 53 */_(ER_CREATE_FUNC,		2, "Failed to create function: %s") \
 
 
 /*

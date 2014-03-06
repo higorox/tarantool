@@ -1115,6 +1115,7 @@ user_has_data(uint32_t uid)
 void
 user_create_from_tuple(struct user *user, struct tuple *tuple)
 {
+	/* In case user password is empty, fill it with \0 */
 	memset(user, 0, sizeof(*user));
 	user->uid = tuple_field_u32(tuple, ID);
 	const char *name = tuple_field_cstr(tuple, NAME);
@@ -1217,7 +1218,7 @@ on_replace_dd_user(struct trigger * /* trigger */, void *event)
 static void
 func_def_create_from_tuple(struct func_def *func, struct tuple *tuple)
 {
-	func->id = tuple_field_u32(tuple, ID);
+	func->fid = tuple_field_u32(tuple, ID);
 	func->uid = tuple_field_u32(tuple, UID);
 	const char *name = tuple_field_cstr(tuple, NAME);
 	uint32_t len = strlen(name);
@@ -1241,12 +1242,25 @@ func_cache_remove_func(struct trigger * /* trigger */, void *event)
 static struct trigger drop_func_trigger =
 	{ rlist_nil, func_cache_remove_func, NULL, NULL };
 
+/** Remove a function from function cache */
+static void
+func_cache_replace_func(struct trigger * /* trigger */, void *event)
+{
+	struct txn *txn = (struct txn *) event;
+	struct func_def func;
+	func_def_create_from_tuple(&func, txn->new_tuple);
+	func_cache_replace(&func);
+}
+
+static struct trigger modify_func_trigger =
+	{ rlist_nil, func_cache_replace_func, NULL, NULL };
+
 /**
  * A trigger invoked on replace in a space containing
  * functions on which there were defined any grants.
  */
 static void
-on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
+on_replace_dd_func(struct trigger * /* trigger */, void *event)
 {
 	struct func_def func;
 	struct txn *txn = (struct txn *) event;
@@ -1260,7 +1274,7 @@ on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 		func_def_create_from_tuple(&func, new_tuple);
 		func_cache_replace(&func);
 		trigger_set(&txn->on_rollback, &drop_func_trigger);
-	} else if (new_tuple == NULL) { /* DELETE */
+	} else if (new_tuple == NULL) {         /* DELETE */
 		func_def_create_from_tuple(&func, old_tuple);
 		/*
 		 * Can only delete func if you're the one
@@ -1269,12 +1283,16 @@ on_replace_dd_func(struct trigger * /* trigger */, void * /* event */)
 		access_check_ddl(func.uid);
 		/* @todo can only delete func if it has no grants */
 		trigger_set(&txn->on_commit, &drop_func_trigger);
-	} else { /* UPDATE, REPLACE */
-		/* do nothing */
+	} else {                                /* UPDATE, REPLACE */
+		func_def_create_from_tuple(&func, new_tuple);
+		access_check_ddl(func.uid);
+		trigger_set(&txn->on_commit, &modify_func_trigger);
 	}
-#endif
 }
 
+/**
+ * Create a privilege definition from tuple.
+ */
 static void
 priv_def_create_from_tuple(struct priv_def *priv, struct tuple *tuple)
 {
@@ -1294,11 +1312,11 @@ priv_def_create_from_tuple(struct priv_def *priv, struct tuple *tuple)
  * This function checks that:
  * - a privilege is granted from an existing user to an existing
  *   user on an existing object
- * - the grantor has the right to grant (the owner of the object)
+ * - the grantor has the right to grant (is the owner of the object)
  *
  * @XXX Potentially there is a race in case of rollback, since an
- * object can be potentially changed after WAL write.
- * In future we must protect grant/revoke with a logical lock.
+ * object can be changed during WAL write.
+ * In the future we must protect grant/revoke with a logical lock.
  */
 static void
 priv_def_check(struct priv_def *priv)
@@ -1404,7 +1422,7 @@ modify_priv(struct trigger * /* trigger */, void *event)
 }
 
 static struct trigger modify_priv_trigger =
-{ rlist_nil, modify_priv, NULL, NULL };
+	{ rlist_nil, modify_priv, NULL, NULL };
 
 /**
  * A trigger invoked on replace in the space containing
