@@ -55,7 +55,6 @@
 #define HASH2			3
 
 /** _priv columns */
-#define PRIV_GRANTEE_ID		1
 #define PRIV_OBJECT_TYPE	2
 #define PRIV_OBJECT_ID		3
 #define PRIV_ACCESS		4
@@ -1297,14 +1296,14 @@ static void
 priv_def_create_from_tuple(struct priv_def *priv, struct tuple *tuple)
 {
 	priv->grantor_id = tuple_field_u32(tuple, ID);
-	priv->grantee_id = tuple_field_u32(tuple, PRIV_GRANTEE_ID);
+	priv->grantee_id = tuple_field_u32(tuple, UID);
 	const char *object_type = tuple_field_cstr(tuple, PRIV_OBJECT_TYPE);
+	priv->object_id = tuple_field_u32(tuple, PRIV_OBJECT_ID);
 	priv->object_type = schema_object_type(object_type);
 	if (priv->object_type == SC_UNKNOWN) {
 		tnt_raise(ClientError, ER_UNKNOWN_SCHEMA_OBJECT,
 			  object_type);
 	}
-	priv->object_id = tuple_field_u32(tuple, PRIV_OBJECT_ID);
 	priv->access = tuple_field_u32(tuple, PRIV_ACCESS);
 }
 

@@ -41,9 +41,9 @@ _index:insert{_func.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
 _index:insert{_func.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
 _index:insert{_func.n, 2, 'name', 'tree', 1, 1, 2, 'str'}
 --
--- space schema is: grantor id, user id, object_id, object_type, privilege
--- primary key: user id, object id, object type
-_index:insert{_priv.n, 0, 'primary', 'tree', 1, 3, 1, 'num', 2, 'num', 3, 'str'}
+-- space schema is: grantor id, user id, object_type, object_id, privilege
+-- primary key: user id, object type, object id
+_index:insert{_priv.n, 0, 'primary', 'tree', 1, 3, 1, 'num', 2, 'str', 3, 'num'}
 _index:insert{_priv.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
 
 -- 

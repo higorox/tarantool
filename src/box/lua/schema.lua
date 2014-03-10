@@ -626,7 +626,12 @@ local function object_resolve(object_type, object_name)
     end
     if object_type == 'function' then
         local _func = box.space[box.schema.FUNC_ID]
-        local func = _func.index['name']:get{object_name}
+        local func
+        if type(object_name) == 'string' then
+            func = _func.index['name']:get{object_name}
+        else
+            func = _func.index['primary']:get{object_name}
+        end
         if func then
             return func[0]
         else
@@ -690,10 +695,9 @@ box.schema.user.drop = function(name)
     end
     -- recursive delete of user data
     local _priv = box.space[box.schema.PRIV_ID]
-    local privs = priv.index['owner']:select{uid}
+    local privs = _priv.index['owner']:select{uid}
     for k, tuple in pairs(privs) do
         box.schema.user.revoke(uid, tuple[4], tuple[2], tuple[3])
-        box.space[tuple[0]]:drop()
     end
     local spaces = box.space[box.schema.SPACE_ID].index['owner']:select{uid}
     for k, tuple in pairs(spaces) do
@@ -721,7 +725,7 @@ box.schema.user.grant = function(user_name, privilege, object_type,
         grantor = user_resolve(grantor)
     end
     local _priv = box.space[box.schema.PRIV_ID]
-    _priv:replace{grantor, uid, oid, object_type, privilege}
+    _priv:replace{grantor, uid, object_type, oid, privilege}
 end
 
 box.schema.user.revoke = function(user_name, privilege, object_type, object_name)
@@ -731,18 +735,18 @@ box.schema.user.revoke = function(user_name, privilege, object_type, object_name
                   "User '"..name.."' does not exist")
     end
     privilege = privilege_resolve(privilege)
-    local oid = object_resolve(object_type, object)
+    local oid = object_resolve(object_type, object_name)
     local _priv = box.space[box.schema.PRIV_ID]
-    local tuple = _priv:select{uid, oid, object_type}
+    local tuple = _priv:get{uid, object_type, oid} 
     if tuple == nil then
         return
     end
     local old_privilege = tuple[4]
     if old_privilege ~= privilege then
         privilege = bit.band(old_privilege, bit.bnot(privilege))
-        _priv:update({uid, oid, object_type}, { "=", 4, privilege})
+        _priv:update({uid, object_type, oid}, { "=", 4, privilege})
     else
-        _priv:delete{uid, oid, object_type}
+        _priv:delete{uid, object_type, oid}
     end
 end
 

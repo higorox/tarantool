@@ -486,7 +486,7 @@ access_check_func(const char *name, uint32_t name_len,
 		return;
 
 	struct func_def *func = func_by_name(name, name_len);
-	if (func == NULL || (func->uid != user->uid &&
+	if (func == NULL || (func->uid != user->uid && user->uid != SUID &&
 			     access & ~func->access[user->auth_token])) {
 
 		char name_buf[BOX_NAME_MAX + 1];

@@ -45,7 +45,7 @@
 static inline void
 access_check_space(uint8_t access, struct user *user, struct space *space)
 {
-	if (access && space->def.uid != user->uid &&
+	if (access && space->def.uid != user->uid && user->uid != SUID &&
 	    access & ~space->access[user->auth_token]) {
 		tnt_raise(ClientError, ER_SPACE_ACCESS_DENIED,
 			  priv_name(access), user->name, space->def.name);
