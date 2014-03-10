@@ -1269,7 +1269,7 @@ on_replace_dd_func(struct trigger * /* trigger */, void *event)
 
 	uint32_t fid = tuple_field_u32(old_tuple ?
 				       old_tuple : new_tuple, ID);
-	struct func_def *old_func = func_cache_find(fid);
+	struct func_def *old_func = func_by_id(fid);
 	if (new_tuple != NULL && old_func == NULL) { /* INSERT */
 		func_def_create_from_tuple(&func, new_tuple);
 		func_cache_replace(&func);

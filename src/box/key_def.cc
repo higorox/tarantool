@@ -46,7 +46,7 @@ schema_object_type(const char *name)
 	static const char *strs[] = {
 		"unknown", "universe", "space", "function" };
 	int index = strindex(strs, name, 4);
-	return (enum schema_object_type) (index == 4 ? 0 : index - 1);
+	return (enum schema_object_type) (index == 4 ? 0 : index);
 }
 
 struct key_def *

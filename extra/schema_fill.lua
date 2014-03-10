@@ -19,6 +19,12 @@ _space:insert{_priv.n, SUID, '_priv', 0}
 -- define indexes
 _index:insert{_schema.n, 0, 'primary', 'tree', 1, 1, 0, 'str'}
 
+-- stick to the following convention:
+-- prefer user id (owner id) in field #1
+-- prefer object name in field #2
+-- index on owner id is index #1
+-- index on object name is index #2
+--
 -- space name is unique
 _index:insert{_space.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
 _index:insert{_space.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
@@ -26,17 +32,18 @@ _index:insert{_space.n, 2, 'name', 'tree', 1, 1, 2, 'str'}
 
 -- index name is unique within a space
 _index:insert{_index.n, 0, 'primary', 'tree', 1, 2, 0, 'num', 1, 'num'}
-_index:insert{_index.n, 1, 'name', 'tree', 1, 2, 0, 'num', 2, 'str'}
+_index:insert{_index.n, 2, 'name', 'tree', 1, 2, 0, 'num', 2, 'str'}
 -- user name and id are unique
 _index:insert{_user.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
-_index:insert{_user.n, 1, 'name', 'tree', 1, 1, 2, 'str'}
+_index:insert{_user.n, 2, 'name', 'tree', 1, 1, 2, 'str'}
 -- function name and id are unique
 _index:insert{_func.n, 0, 'primary', 'tree', 1, 1, 0, 'num'}
 _index:insert{_func.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
 _index:insert{_func.n, 2, 'name', 'tree', 1, 1, 2, 'str'}
 --
--- user id, object id, object type unique
-_index:insert{_priv.n, 0, 'primary', 'tree', 1, 3, 0, 'num', 1, 'num', 2, 'str'}
+-- space schema is: grantor id, user id, object_id, object_type, privilege
+-- primary key: user id, object id, object type
+_index:insert{_priv.n, 0, 'primary', 'tree', 1, 3, 1, 'num', 2, 'num', 3, 'str'}
 _index:insert{_priv.n, 1, 'owner', 'tree', 0, 1, 1, 'num'}
 
 -- 

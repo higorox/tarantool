@@ -200,11 +200,12 @@ sc_space_new(struct space_def *space_def,
 }
 
 uint32_t
-schema_find_id(uint32_t system_space_id, const char *name, uint32_t len)
+schema_find_id(uint32_t system_space_id, uint32_t
+	       index_id, const char *name, uint32_t len)
 {
 	struct space *space = space_cache_find(system_space_id);
 	/** Index by name is #1. */
-	Index *index = index_find(space, 1);
+	Index *index = index_find(space, index_id);
 	struct iterator *it = index->position();
 	char key[5 /* str len */ + BOX_NAME_MAX];
 	mp_encode_str(key, name, len);

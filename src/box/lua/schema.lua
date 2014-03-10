@@ -683,16 +683,31 @@ box.schema.user.create = function(name, opts)
 end
 
 box.schema.user.drop = function(name)
-    local _user = box.space[box.schema.USER_ID]
     local uid = user_resolve(name)
     if uid == nil then
-        box.raise(box.error.ER_NO_SUCH_USER, "User '"..name.."' does not exist")
+        box.raise(box.error.ER_NO_SUCH_USER,
+                 "User '"..name.."' does not exist")
     end
-    -- todo recursive delete of user data
-    _user:delete{uid}
+    -- recursive delete of user data
+    local _priv = box.space[box.schema.PRIV_ID]
+    local privs = priv.index['owner']:select{uid}
+    for k, tuple in pairs(privs) do
+        box.schema.user.revoke(uid, tuple[4], tuple[2], tuple[3])
+        box.space[tuple[0]]:drop()
+    end
+    local spaces = box.space[box.schema.SPACE_ID].index['owner']:select{uid}
+    for k, tuple in pairs(spaces) do
+        box.space[tuple[0]]:drop()
+    end
+    local funcs = box.space[box.schema.FUNC_ID].index['owner']:select{uid}
+    for k, tuple in pairs(spaces) do
+        box.schema.func.drop(tuple[0])
+    end
+    box.space[box.schema.USER_ID]:delete{uid}
 end
 
-box.schema.user.grant = function(user_name, privilege, object_type, object_name, grantor)
+box.schema.user.grant = function(user_name, privilege, object_type,
+                                 object_name, grantor)
     local uid = user_resolve(user_name)
     if uid == nil then
         box.raise(box.error.ER_NO_SUCH_USER,
@@ -706,7 +721,7 @@ box.schema.user.grant = function(user_name, privilege, object_type, object_name,
         grantor = user_resolve(grantor)
     end
     local _priv = box.space[box.schema.PRIV_ID]
-    _priv:replace{grantor, uid, object_type, oid, privilege}
+    _priv:replace{grantor, uid, oid, object_type, privilege}
 end
 
 box.schema.user.revoke = function(user_name, privilege, object_type, object_name)
@@ -718,16 +733,16 @@ box.schema.user.revoke = function(user_name, privilege, object_type, object_name
     privilege = privilege_resolve(privilege)
     local oid = object_resolve(object_type, object)
     local _priv = box.space[box.schema.PRIV_ID]
-    local tuple = _priv:select{uid, object_type, oid}
+    local tuple = _priv:select{uid, oid, object_type}
     if tuple == nil then
         return
     end
     local old_privilege = tuple[4]
     if old_privilege ~= privilege then
         privilege = bit.band(old_privilege, bit.bnot(privilege))
-        _priv:update({uid, object_type, oid}, { "=", 4, privilege})
+        _priv:update({uid, oid, object_type}, { "=", 4, privilege})
     else
-        _priv:delete{uid, object_type, oid}
+        _priv:delete{uid, oid, object_type}
     end
 end
 

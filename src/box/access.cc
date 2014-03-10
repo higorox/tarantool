@@ -124,7 +124,7 @@ user_cache_find(uint32_t uid)
 struct user *
 user_cache_find_by_name(const char *name, uint32_t len)
 {
-	uint32_t uid = schema_find_id(SC_USER_ID, name, len);
+	uint32_t uid = schema_find_id(SC_USER_ID, 2, name, len);
 	return user_cache_find(uid);
 }
 
